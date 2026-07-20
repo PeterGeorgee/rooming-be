@@ -10,7 +10,7 @@ Spring Boot API for CampKin room and discussion-group assignments.
 
 ## Configure
 
-Set these environment variables before starting:
+Copy `.env.example` to `.env` in the backend folder and enter your local PostgreSQL password:
 
 ```text
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/campkin
@@ -18,6 +18,8 @@ SPRING_DATASOURCE_USERNAME=postgres
 SPRING_DATASOURCE_PASSWORD=your_password
 APP_CORS_ORIGINS=http://localhost:5173
 ```
+
+The private `.env` file is loaded automatically when the backend starts from IntelliJ or Maven. It is excluded from Git.
 
 Create an empty PostgreSQL database named `campkin`. Flyway creates and updates the tables automatically.
 
