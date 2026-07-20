@@ -1,6 +1,7 @@
 package com.campkin.service;
 
 import com.campkin.api.ApiModels.ImportResult;
+import com.campkin.api.ImportValidationException;
 import com.campkin.domain.*;
 import com.campkin.repo.*;
 import lombok.RequiredArgsConstructor;
@@ -32,42 +33,32 @@ public class ExcelImportService {
         if (rows.isEmpty()) throw new IllegalArgumentException("The file has no camper rows");
 
         List<String> warnings = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        List<ValidatedRow> validRows = new ArrayList<>();
         Set<String> names = new HashSet<>();
-        int boys = 0, girls = 0, unknown = 0;
 
         for (int index = 0; index < rows.size(); index++) {
             Map<String, String> row = rows.get(index);
+            int rowNumber = index + 2;
+            int errorCountBeforeRow = errors.size();
             String combined = first(row, "name", "camper");
             String name = first(row, "camper name");
             if (name.isBlank()) name = stripEmbeddedDate(combined);
-            if (name.isBlank()) continue;
+            name = name.trim().replaceAll("\\s+", " ");
+            if (name.isBlank()) { errors.add("Row " + rowNumber + ": camper name is missing"); continue; }
 
             String normalized = NameMatcher.normalize(name);
-            if (!names.add(normalized)) {
-                warnings.add("Duplicate name skipped: " + name);
-                continue;
-            }
+            if (!names.add(normalized)) errors.add("Row " + rowNumber + " (" + name + "): duplicate camper name");
 
-            LocalDate birthdate = parseDate(first(row, "date of birth", "birthdate"));
+            LocalDate birthdate = null;
+            String rawBirthdate = first(row, "date of birth", "birthdate");
+            try { birthdate = parseDate(rawBirthdate); }
+            catch (IllegalArgumentException e) { errors.add("Row " + rowNumber + " (" + name + "): invalid birthdate '" + rawBirthdate + "'"); }
             if (birthdate == null) birthdate = embeddedDate(combined);
-            if (birthdate == null) throw new IllegalArgumentException("Missing birthdate on row " + (index + 2) + ": " + name);
+            if (birthdate == null && rawBirthdate.isBlank()) errors.add("Row " + rowNumber + " (" + name + "): birthdate is missing");
+            if (birthdate != null && birthdate.isAfter(camp.getStartDate())) errors.add("Row " + rowNumber + " (" + name + "): birthdate is after the camp start date");
 
             Domain.Gender gender = parseGender(first(row, "gender"));
-            if (gender == Domain.Gender.MALE) boys++;
-            else if (gender == Domain.Gender.FEMALE) girls++;
-            else {
-                unknown++;
-                warnings.add("Gender needs review: " + name);
-            }
-
-            Camper camper = new Camper();
-            camper.setCamp(camp);
-            camper.setName(name.trim().replaceAll("\\s+", " "));
-            camper.setNormalizedName(normalized);
-            camper.setGender(gender);
-            camper.setBirthdate(birthdate);
-            campers.save(camper);
-
             LinkedHashSet<String> requested = new LinkedHashSet<>();
             for (String column : List.of("roommate preferences", "preferences", "room mates", "manual room mates")) {
                 for (String raw : splitPreferences(first(row, column))) {
@@ -75,7 +66,24 @@ public class ExcelImportService {
                     if (!clean.isBlank()) requested.add(clean);
                 }
             }
-            for (String raw : requested) {
+            if (errors.size() == errorCountBeforeRow) validRows.add(new ValidatedRow(name, normalized, birthdate, gender, requested));
+        }
+
+        if (!errors.isEmpty()) throw new ImportValidationException(errors);
+
+        int boys = 0, girls = 0, unknown = 0;
+        for (ValidatedRow row : validRows) {
+            if (row.gender() == Domain.Gender.MALE) boys++;
+            else if (row.gender() == Domain.Gender.FEMALE) girls++;
+            else { unknown++; warnings.add("Gender needs review: " + row.name()); }
+            Camper camper = new Camper();
+            camper.setCamp(camp);
+            camper.setName(row.name());
+            camper.setNormalizedName(row.normalizedName());
+            camper.setGender(row.gender());
+            camper.setBirthdate(row.birthdate());
+            campers.save(camper);
+            for (String raw : row.preferences()) {
                 Preference preference = new Preference();
                 preference.setCamper(camper);
                 preference.setRawName(raw);
@@ -89,6 +97,8 @@ public class ExcelImportService {
         double average = all.stream().mapToInt(c -> c.ageOn(camp.getStartDate())).average().orElse(0);
         return new ImportResult(boys + girls + unknown, boys, girls, unknown, Math.round(average * 10) / 10d, warnings);
     }
+
+    private record ValidatedRow(String name, String normalizedName, LocalDate birthdate, Domain.Gender gender, Set<String> preferences) {}
 
     private List<Map<String, String>> readRows(MultipartFile file) throws IOException {
         String name = Optional.ofNullable(file.getOriginalFilename()).orElse("").toLowerCase(Locale.ROOT);
