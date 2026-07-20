@@ -1,0 +1,1 @@
+package com.campkin.repo; import com.campkin.domain.Camp; import org.springframework.data.jpa.repository.JpaRepository; import java.util.UUID; public interface CampRepository extends JpaRepository<Camp,UUID>{}

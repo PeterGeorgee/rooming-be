@@ -1,0 +1,1 @@
+package com.campkin.repo; import com.campkin.domain.DiscussionGroup; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface DiscussionGroupRepository extends JpaRepository<DiscussionGroup,UUID>{ List<DiscussionGroup> findByCampIdOrderByName(UUID campId); void deleteByCampId(UUID campId); }

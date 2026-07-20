@@ -1,0 +1,18 @@
+server:
+  port: 8080
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/campkin}
+    username: ${SPRING_DATASOURCE_USERNAME:campkin}
+    password: ${SPRING_DATASOURCE_PASSWORD:campkin}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+app:
+  cors-origins: ${APP_CORS_ORIGINS:http://localhost:5173}
+  fuzzy-threshold: 0.85
