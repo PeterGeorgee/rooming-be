@@ -3,6 +3,8 @@ import com.campkin.domain.Domain; import jakarta.validation.constraints.*; impor
 public final class ApiModels { private ApiModels(){}
  public record CampRequest(@NotBlank String name,@NotNull LocalDate startDate,@NotNull LocalDate endDate,String description){}
  public record RoomRequest(@NotBlank String name,@Min(1) int capacity,@NotNull Domain.Gender gender){}
+ public record BatchRoomRequest(@Min(1) @Max(100) int count,@Min(1) int capacity,@NotNull Domain.Gender gender){}
+ public record RoomRenameRequest(@NotBlank @Size(max=120) String name){}
  public record GroupRequest(@Min(1) Integer numberOfGroups,@Min(1) Integer membersPerGroup,boolean genderSeparated){}
  public record MoveRequest(UUID roomId,UUID groupId){}
  public record GenderRequest(@NotNull Domain.Gender gender){}

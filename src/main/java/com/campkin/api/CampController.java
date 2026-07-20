@@ -6,6 +6,8 @@ import com.campkin.api.ApiModels.*; import com.campkin.domain.*; import com.camp
  @GetMapping("/camps") List<Camp> camps(){return service.list();} @PostMapping("/camps") @ResponseStatus(HttpStatus.CREATED) Camp create(@Valid @RequestBody CampRequest r){return service.create(r);}
  @GetMapping("/camps/{id}/dashboard") Dashboard dashboard(@PathVariable UUID id){return service.dashboard(id);} @GetMapping("/camps/{id}/campers/search") List<CamperView> search(@PathVariable UUID id,@RequestParam String q){return service.search(id,q);}
  @PostMapping("/camps/{id}/rooms") @ResponseStatus(HttpStatus.CREATED) Room room(@PathVariable UUID id,@Valid @RequestBody RoomRequest r){return service.addRoom(id,r);}
+ @PostMapping("/camps/{id}/rooms/batch") @ResponseStatus(HttpStatus.CREATED) List<Room> rooms(@PathVariable UUID id,@Valid @RequestBody BatchRoomRequest r){return service.addRooms(id,r);}
+ @PatchMapping("/rooms/{id}") Room renameRoom(@PathVariable UUID id,@Valid @RequestBody RoomRenameRequest r){return service.renameRoom(id,r);}
  @PostMapping(value="/camps/{id}/import",consumes=MediaType.MULTIPART_FORM_DATA_VALUE) ImportResult importCampers(@PathVariable UUID id,@RequestPart MultipartFile file)throws IOException{return importer.importFile(id,file);}
  @PostMapping("/camps/{id}/assign/rooms") void assignRooms(@PathVariable UUID id){assignments.assignRooms(id);} @PostMapping("/camps/{id}/assign/groups") void assignGroups(@PathVariable UUID id,@Valid @RequestBody GroupRequest r){assignments.assignGroups(id,r);}
  @PatchMapping("/campers/{id}/assignment") void move(@PathVariable UUID id,@RequestBody MoveRequest r){service.move(id,r);}
