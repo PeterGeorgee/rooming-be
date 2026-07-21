@@ -111,10 +111,10 @@ public class PdfService {
     }
 
     private PdfPTable memberTable(List<CamperView> campers) {
-        PdfPTable table = new PdfPTable(new float[]{3.2f, 4.8f});
+        PdfPTable table = new PdfPTable(new float[]{4.8f, 1.2f});
         table.setWidthPercentage(100);
         table.setHeaderRows(1);
-        for (String heading : List.of("Camper", "Roommate preferences")) {
+        for (String heading : List.of("Camper", "Age")) {
             PdfPCell cell = new PdfPCell(new Phrase(heading, font(8, Font.BOLD, DARK)));
             cell.setBackgroundColor(new Color(247, 250, 248)); cell.setBorderColor(LINE); cell.setPadding(6);
             table.addCell(cell);
@@ -125,8 +125,7 @@ public class PdfService {
         }
         for (CamperView camper : campers) {
             table.addCell(bodyCell(camper.name()));
-            String requested = camper.preferences().stream().map(p -> p.matchedName() == null ? p.rawName() : p.matchedName()).reduce((a, b) -> a + ", " + b).orElse("-");
-            table.addCell(bodyCell(requested));
+            table.addCell(bodyCell(String.valueOf(camper.age())));
         }
         return table;
     }
