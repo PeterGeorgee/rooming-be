@@ -70,7 +70,7 @@ public class PdfService {
         String meta = (room.gender().name().equals("FEMALE") ? "Girls" : "Boys") + "   |   Beds used: " + room.occupancy() + " / " + room.capacity();
         if (room.leaderName() != null) meta += "   |   Leader: " + room.leaderName();
         section.addCell(metaCell(meta));
-        section.addCell(wrapped(memberTable(room.campers())));
+        section.addCell(wrapped(roomMemberTable(room.campers())));
         return section;
     }
 
@@ -127,6 +127,25 @@ public class PdfService {
             String requested = camper.preferences().stream().map(p -> p.matchedName() == null ? p.rawName() : p.matchedName()).reduce((a, b) -> a + ", " + b).orElse("-");
             table.addCell(bodyCell(requested));
         }
+        return table;
+    }
+
+    private PdfPTable roomMemberTable(List<CamperView> campers) {
+        PdfPTable table = new PdfPTable(1);
+        table.setWidthPercentage(100);
+        table.setHeaderRows(1);
+        PdfPCell heading = new PdfPCell(new Phrase("Camper", font(8, Font.BOLD, DARK)));
+        heading.setBackgroundColor(new Color(247, 250, 248));
+        heading.setBorderColor(LINE);
+        heading.setPadding(6);
+        table.addCell(heading);
+        if (campers.isEmpty()) {
+            PdfPCell empty = new PdfPCell(new Phrase("No campers assigned", font(8, Font.ITALIC, MUTED)));
+            empty.setBorderColor(LINE);
+            empty.setPadding(7);
+            table.addCell(empty);
+        }
+        for (CamperView camper : campers) table.addCell(bodyCell(camper.name()));
         return table;
     }
 
