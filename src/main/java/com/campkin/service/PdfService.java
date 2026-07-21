@@ -48,7 +48,7 @@ public class PdfService {
         document.add(spacer(10));
 
         if (roomMode) {
-            for (RoomView room : dashboard.rooms()) document.add(roomSection(room));
+            for (RoomView room : dashboard.rooms().stream().filter(r -> r.occupancy() > 0).toList()) document.add(roomSection(room));
         } else {
             for (GroupView group : dashboard.groups()) document.add(groupSection(group));
         }

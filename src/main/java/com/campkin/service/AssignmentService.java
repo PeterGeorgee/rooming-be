@@ -47,14 +47,12 @@ public class AssignmentService {
 
         for (Domain.Gender gender : List.of(Domain.Gender.FEMALE, Domain.Gender.MALE)) {
             List<Camper> people = new ArrayList<>(all.stream().filter(c -> c.getGender() == gender).toList());
-            List<Room> available = campRooms.stream().filter(r -> r.getGender() == gender).toList();
+            List<Room> genderRooms = campRooms.stream().filter(r -> r.getGender() == gender).toList();
+            int totalCamperBeds = genderRooms.stream().mapToInt(this::camperCapacity).sum();
+            if (totalCamperBeds < people.size())
+                throw new IllegalStateException("Not enough " + gender.name().toLowerCase() + " camper beds: need " + people.size() + ", have " + totalCamperBeds + " after leader beds");
+            List<Room> available = selectActiveRooms(genderRooms, people.size());
             if (people.isEmpty() && available.isEmpty()) continue;
-            int leaderBeds = (int) available.stream().filter(r -> r.getLeaderName() != null).count();
-            int camperBeds = available.stream().mapToInt(r -> r.getCapacity() - (r.getLeaderName() == null ? 0 : 1)).sum();
-            if (camperBeds < people.size())
-                throw new IllegalStateException("Not enough " + gender.name().toLowerCase() + " camper beds: need " + people.size() + ", have " + camperBeds + " after leader beds");
-            if (people.size() + leaderBeds < available.size())
-                throw new IllegalStateException("There are not enough " + gender.name().toLowerCase() + " campers and leaders to occupy every room");
 
             Map<UUID, List<Camper>> placed = available.stream().collect(Collectors.toMap(Room::getId, x -> new ArrayList<>(), (a,b) -> a, LinkedHashMap::new));
             List<List<Camper>> components = components(people, friendMap);
@@ -83,6 +81,26 @@ public class AssignmentService {
 
     private int usedBeds(Room room, Map<UUID, List<Camper>> placed) {
         return placed.get(room.getId()).size() + (room.getLeaderName() == null ? 0 : 1);
+    }
+
+    private int camperCapacity(Room room) {
+        return room.getCapacity() - (room.getLeaderName() == null ? 0 : 1);
+    }
+
+    private List<Room> selectActiveRooms(List<Room> genderRooms, int camperCount) {
+        List<Room> active = new ArrayList<>(genderRooms.stream().filter(r -> r.getLeaderName() != null).toList());
+        int capacity = active.stream().mapToInt(this::camperCapacity).sum();
+        List<Room> candidates = genderRooms.stream()
+            .filter(r -> r.getLeaderName() == null)
+            .sorted(Comparator.comparingInt(Room::getCapacity).reversed().thenComparing(Room::getName))
+            .toList();
+        for (Room room : candidates) {
+            if (capacity >= camperCount) break;
+            active.add(room);
+            capacity += camperCapacity(room);
+        }
+        active.sort(Comparator.comparing(Room::getName));
+        return active;
     }
 
     private double placementScore(Camper camper, Room room, Map<UUID, List<Camper>> placed, Map<UUID, Set<UUID>> friends, Camp camp) {
