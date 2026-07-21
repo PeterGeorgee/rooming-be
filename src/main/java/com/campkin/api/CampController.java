@@ -4,6 +4,7 @@ import com.campkin.api.ApiModels.*; import com.campkin.domain.*; import com.camp
  private final CampService service; private final ExcelImportService importer; private final AssignmentService assignments; private final PdfService pdf; private final PreferenceRepository preferences; private final CamperRepository campers;
  @GetMapping("/health") Map<String,String> health(){return Map.of("status","ok");}
  @GetMapping("/camps") List<Camp> camps(){return service.list();} @PostMapping("/camps") @ResponseStatus(HttpStatus.CREATED) Camp create(@Valid @RequestBody CampRequest r){return service.create(r);}
+ @DeleteMapping("/camps/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) void deleteCamp(@PathVariable UUID id){service.deleteCamp(id);}
  @GetMapping("/camps/{id}/dashboard") Dashboard dashboard(@PathVariable UUID id){return service.dashboard(id);} @GetMapping("/camps/{id}/campers/search") List<CamperView> search(@PathVariable UUID id,@RequestParam String q){return service.search(id,q);}
  @PostMapping("/camps/{id}/rooms") @ResponseStatus(HttpStatus.CREATED) Room room(@PathVariable UUID id,@Valid @RequestBody RoomRequest r){return service.addRoom(id,r);}
  @PostMapping("/camps/{id}/rooms/batch") @ResponseStatus(HttpStatus.CREATED) List<Room> rooms(@PathVariable UUID id,@Valid @RequestBody BatchRoomRequest r){return service.addRooms(id,r);}
@@ -16,5 +17,4 @@ import com.campkin.api.ApiModels.*; import com.campkin.domain.*; import com.camp
  @GetMapping(value="/camps/{id}/exports/rooms.pdf",produces=MediaType.APPLICATION_PDF_VALUE) ResponseEntity<byte[]> roomPdf(@PathVariable UUID id){return download(pdf.rooms(id),"room-assignments.pdf");} @GetMapping(value="/camps/{id}/exports/groups.pdf",produces=MediaType.APPLICATION_PDF_VALUE) ResponseEntity<byte[]> groupPdf(@PathVariable UUID id){return download(pdf.groups(id),"discussion-groups.pdf");}
  private ResponseEntity<byte[]> download(byte[] bytes,String name){return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=\""+name+"\"").body(bytes);}
 }
-
 
