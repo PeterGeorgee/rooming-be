@@ -21,5 +21,5 @@ public final class ApiModels { private ApiModels(){}
  public record GroupView(UUID id,String name,Integer capacity,List<String> leaders,long occupancy,double averageAge,List<CamperView> campers){}
  public record Stats(long total,long boys,long girls,long unknownGender,long assumedGender,double averageAge,long matched,long ambiguous,long unresolved,double satisfaction,double averageRoomAgeSpread){}
  public record Dashboard(Object camp,List<RoomView> rooms,List<GroupView> groups,List<CamperView> campers,Stats stats){}
- public record ImportResult(int imported,int boys,int girls,int unknownGender,double averageAge,List<String> warnings){}
+ public record ImportResult(int imported,int added,int updated,boolean existingAssignments,int boys,int girls,int unknownGender,double averageAge,List<String> warnings){}
 }

@@ -71,16 +71,31 @@ public class ExcelImportService {
 
         if (!errors.isEmpty()) throw new ImportValidationException(errors);
 
-        int boys = 0, girls = 0, unknown = 0;
+        List<Camper> beforeImport = campers.findByCampIdOrderByName(campId);
+        boolean existingAssignments = beforeImport.stream().anyMatch(c -> c.getRoom() != null);
+        Map<String, Camper> existingByName = new HashMap<>();
+        for (Camper camper : beforeImport) existingByName.putIfAbsent(camper.getNormalizedName(), camper);
+        int boys = 0, girls = 0, unknown = 0, added = 0, updated = 0;
         for (ValidatedRow row : validRows) {
             if (row.gender() == Domain.Gender.MALE) boys++;
             else if (row.gender() == Domain.Gender.FEMALE) girls++;
             else { unknown++; warnings.add("Gender needs review: " + row.name()); }
-            Camper camper = new Camper();
-            camper.setCamp(camp);
+            Camper camper = existingByName.get(row.normalizedName());
+            if (camper == null) {
+                camper = new Camper();
+                camper.setCamp(camp);
+                camper.setGender(row.gender());
+                added++;
+            } else {
+                preferences.deleteByCamperId(camper.getId());
+                if (row.gender() != Domain.Gender.UNKNOWN) {
+                    camper.setGender(row.gender());
+                    camper.setGenderAssumed(false);
+                }
+                updated++;
+            }
             camper.setName(row.name());
             camper.setNormalizedName(row.normalizedName());
-            camper.setGender(row.gender());
             camper.setBirthdate(row.birthdate());
             campers.save(camper);
             for (String raw : row.preferences()) {
@@ -100,7 +115,8 @@ public class ExcelImportService {
         unknown = (int) all.stream().filter(c -> c.getGender() == Domain.Gender.UNKNOWN).count();
         if (inferred > 0) warnings.add(inferred + " reviewable gender suggestion(s) were added from roommate links and camp balancing");
         double average = all.stream().mapToInt(c -> c.ageOn(camp.getStartDate())).average().orElse(0);
-        return new ImportResult(boys + girls + unknown, boys, girls, unknown, Math.round(average * 10) / 10d, warnings);
+        if (added > 0) warnings.add(added + " new camper(s) added; existing campers were not duplicated");
+        return new ImportResult(validRows.size(), added, updated, existingAssignments, boys, girls, unknown, Math.round(average * 10) / 10d, warnings);
     }
 
     private record ValidatedRow(String name, String normalizedName, LocalDate birthdate, Domain.Gender gender, Set<String> preferences) {}
