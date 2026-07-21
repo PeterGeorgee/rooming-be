@@ -1,8 +1,142 @@
 package com.campkin.service;
-import com.campkin.api.ApiModels.*; import com.lowagie.text.*; import com.lowagie.text.pdf.*; import lombok.RequiredArgsConstructor; import org.springframework.stereotype.Service; import java.io.*; import java.time.*; import java.util.UUID;
-@Service @RequiredArgsConstructor public class PdfService { private final CampService service;
- public byte[] rooms(UUID campId){return render(campId,true);} public byte[] groups(UUID campId){return render(campId,false);}
- private byte[] render(UUID id,boolean roomMode){Dashboard d=service.dashboard(id);ByteArrayOutputStream out=new ByteArrayOutputStream();Document doc=new Document(PageSize.A4,38,38,48,42);PdfWriter writer=PdfWriter.getInstance(doc,out);writer.setPageEvent(new Footer());doc.open();Font title=new Font(Font.HELVETICA,20,Font.BOLD,new java.awt.Color(23,60,57));Font h=new Font(Font.HELVETICA,13,Font.BOLD);doc.add(new Paragraph("CampKin · "+(roomMode?"Room assignments":"Discussion groups"),title));doc.add(new Paragraph("Generated "+LocalDate.now(),new Font(Font.HELVETICA,9)));doc.add(Chunk.NEWLINE);if(roomMode)for(RoomView r:d.rooms()){doc.add(new Paragraph(r.name()+"  ·  "+r.occupancy()+" / "+r.capacity()+"  ·  "+r.gender(),h));doc.add(table(r.campers()));doc.add(Chunk.NEWLINE);}else for(GroupView g:d.groups()){doc.add(new Paragraph(g.name()+"  ·  "+g.occupancy()+" members  ·  avg age "+g.averageAge(),h));doc.add(table(g.campers()));doc.add(Chunk.NEWLINE);}doc.close();return out.toByteArray();}
- private PdfPTable table(java.util.List<CamperView> cs){PdfPTable t=new PdfPTable(new float[]{4,1,3});t.setWidthPercentage(100);for(String x:java.util.List.of("Camper","Age","Friend preference")){PdfPCell c=new PdfPCell(new Phrase(x));c.setBackgroundColor(new java.awt.Color(232,240,237));c.setPadding(7);t.addCell(c);}for(CamperView c:cs){t.addCell(cell(c.name()));t.addCell(cell(String.valueOf(c.age())));t.addCell(cell(c.preferences().stream().map(p->p.matchedName()==null?p.rawName():p.matchedName()).reduce((a,b)->a+", "+b).orElse("—")));}return t;} private PdfPCell cell(String x){PdfPCell c=new PdfPCell(new Phrase(x,new Font(Font.HELVETICA,9)));c.setPadding(6);return c;}
- static class Footer extends PdfPageEventHelper{public void onEndPage(PdfWriter w,Document d){ColumnText.showTextAligned(w.getDirectContent(),Element.ALIGN_CENTER,new Phrase("CampKin  ·  Page "+w.getPageNumber(),new Font(Font.HELVETICA,8)),(d.right()+d.left())/2,d.bottom()-18,0);}}
+
+import com.campkin.api.ApiModels.*;
+import com.campkin.domain.Camp;
+import com.lowagie.text.*;
+import com.lowagie.text.pdf.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.awt.Color;
+import java.io.ByteArrayOutputStream;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class PdfService {
+    private static final Color DARK = new Color(21, 61, 57);
+    private static final Color TEAL = new Color(29, 98, 93);
+    private static final Color PALE = new Color(232, 240, 237);
+    private static final Color LINE = new Color(211, 222, 218);
+    private static final Color MUTED = new Color(91, 111, 107);
+    private final CampService service;
+
+    public byte[] rooms(UUID campId) { return render(campId, true); }
+    public byte[] groups(UUID campId) { return render(campId, false); }
+
+    private byte[] render(UUID campId, boolean roomMode) {
+        Dashboard dashboard = service.dashboard(campId);
+        Camp camp = (Camp) dashboard.camp();
+        String reportName = roomMode ? "Room Assignments" : "Discussion Groups";
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        Document document = new Document(PageSize.A4, 34, 34, 42, 42);
+        PdfWriter writer = PdfWriter.getInstance(document, output);
+        writer.setPageEvent(new Footer(camp.getName()));
+        document.open();
+
+        Paragraph campTitle = new Paragraph(camp.getName(), font(22, Font.BOLD, DARK));
+        campTitle.setSpacingAfter(3);
+        document.add(campTitle);
+        Paragraph reportTitle = new Paragraph(reportName, font(13, Font.BOLD, TEAL));
+        reportTitle.setSpacingAfter(4);
+        document.add(reportTitle);
+        DateTimeFormatter date = DateTimeFormatter.ofPattern("d MMM yyyy");
+        document.add(new Paragraph(camp.getStartDate().format(date) + " - " + camp.getEndDate().format(date) + "   |   Generated " + LocalDate.now().format(date), font(8, Font.NORMAL, MUTED)));
+        document.add(spacer(10));
+
+        if (roomMode) {
+            for (RoomView room : dashboard.rooms()) document.add(roomSection(room));
+        } else {
+            for (GroupView group : dashboard.groups()) document.add(groupSection(group));
+        }
+        document.close();
+        return output.toByteArray();
+    }
+
+    private PdfPTable roomSection(RoomView room) {
+        PdfPTable section = sectionTable();
+        section.addCell(sectionHeader(room.name()));
+        String meta = (room.gender().name().equals("FEMALE") ? "Girls" : "Boys") + "   |   Beds used: " + room.occupancy() + " / " + room.capacity();
+        if (room.leaderName() != null) meta += "   |   Leader: " + room.leaderName();
+        section.addCell(metaCell(meta));
+        section.addCell(wrapped(memberTable(room.campers())));
+        return section;
+    }
+
+    private PdfPTable groupSection(GroupView group) {
+        PdfPTable section = sectionTable();
+        section.addCell(sectionHeader(group.name()));
+        section.addCell(metaCell(group.occupancy() + " campers   |   Average age: " + group.averageAge()));
+        section.addCell(wrapped(memberTable(group.campers())));
+        return section;
+    }
+
+    private PdfPTable sectionTable() {
+        PdfPTable table = new PdfPTable(1);
+        table.setWidthPercentage(100);
+        table.setSpacingAfter(12);
+        table.setKeepTogether(true);
+        return table;
+    }
+
+    private PdfPCell sectionHeader(String name) {
+        PdfPCell cell = new PdfPCell(new Phrase(name, font(12, Font.BOLD, Color.WHITE)));
+        cell.setBackgroundColor(DARK); cell.setBorderColor(DARK); cell.setPadding(8);
+        return cell;
+    }
+
+    private PdfPCell metaCell(String text) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font(8, Font.BOLD, TEAL)));
+        cell.setBackgroundColor(PALE); cell.setBorderColor(LINE); cell.setPadding(6);
+        return cell;
+    }
+
+    private PdfPCell wrapped(PdfPTable table) {
+        PdfPCell cell = new PdfPCell(table);
+        cell.setBorderColor(LINE); cell.setPadding(0);
+        return cell;
+    }
+
+    private PdfPTable memberTable(List<CamperView> campers) {
+        PdfPTable table = new PdfPTable(new float[]{3.2f, .7f, 4.1f});
+        table.setWidthPercentage(100);
+        table.setHeaderRows(1);
+        for (String heading : List.of("Camper", "Age", "Roommate preferences")) {
+            PdfPCell cell = new PdfPCell(new Phrase(heading, font(8, Font.BOLD, DARK)));
+            cell.setBackgroundColor(new Color(247, 250, 248)); cell.setBorderColor(LINE); cell.setPadding(6);
+            table.addCell(cell);
+        }
+        if (campers.isEmpty()) {
+            PdfPCell empty = new PdfPCell(new Phrase("No campers assigned", font(8, Font.ITALIC, MUTED)));
+            empty.setColspan(3); empty.setBorderColor(LINE); empty.setPadding(7); table.addCell(empty);
+        }
+        for (CamperView camper : campers) {
+            table.addCell(bodyCell(camper.name()));
+            table.addCell(bodyCell(String.valueOf(camper.age())));
+            String requested = camper.preferences().stream().map(p -> p.matchedName() == null ? p.rawName() : p.matchedName()).reduce((a, b) -> a + ", " + b).orElse("-");
+            table.addCell(bodyCell(requested));
+        }
+        return table;
+    }
+
+    private PdfPCell bodyCell(String text) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font(8, Font.NORMAL, Color.BLACK)));
+        cell.setBorderColor(LINE); cell.setPadding(6); cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        return cell;
+    }
+
+    private Paragraph spacer(float space) { Paragraph p = new Paragraph(" "); p.setSpacingAfter(space); return p; }
+    private Font font(float size, int style, Color color) { return new Font(Font.HELVETICA, size, style, color); }
+
+    static class Footer extends PdfPageEventHelper {
+        private final String campName;
+        Footer(String campName) { this.campName = campName; }
+        @Override public void onEndPage(PdfWriter writer, Document document) {
+            ColumnText.showTextAligned(writer.getDirectContent(), Element.ALIGN_LEFT, new Phrase(campName, new Font(Font.HELVETICA, 7, Font.NORMAL, MUTED)), document.left(), document.bottom() - 18, 0);
+            ColumnText.showTextAligned(writer.getDirectContent(), Element.ALIGN_RIGHT, new Phrase("Page " + writer.getPageNumber(), new Font(Font.HELVETICA, 7, Font.NORMAL, MUTED)), document.right(), document.bottom() - 18, 0);
+        }
+    }
 }

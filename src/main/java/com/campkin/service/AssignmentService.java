@@ -100,15 +100,45 @@ public class AssignmentService {
         if (all.isEmpty()) throw new IllegalStateException("Import campers first");
         int count = req.numberOfGroups() != null ? req.numberOfGroups() : (int) Math.ceil((double) all.size() / req.membersPerGroup());
         if (count < 1) throw new IllegalArgumentException("At least one group is required");
+        if (count > all.size()) throw new IllegalArgumentException("Number of groups cannot exceed number of campers");
         groups.deleteByCampId(campId);
-        List<DiscussionGroup> generated = new ArrayList<>();
+        if (!req.genderSeparated()) {
+            assignToGroups(all, createGroups(camp, "Group", count, all.size(), false), camp);
+            return;
+        }
+
+        List<Camper> girls = all.stream().filter(c -> c.getGender() == Domain.Gender.FEMALE).toList();
+        List<Camper> boys = all.stream().filter(c -> c.getGender() == Domain.Gender.MALE).toList();
+        if (girls.size() + boys.size() != all.size()) throw new IllegalStateException("Set every camper's gender before generating separated groups");
+        int activeGenders = (girls.isEmpty() ? 0 : 1) + (boys.isEmpty() ? 0 : 1);
+        if (count < activeGenders) throw new IllegalArgumentException("At least one group is required for each gender that has campers");
+
+        int girlGroups = girls.isEmpty() ? 0 : 1;
+        int boyGroups = boys.isEmpty() ? 0 : 1;
+        while (girlGroups + boyGroups < count) {
+            double girlLoad = girlGroups == 0 ? -1 : (double) girls.size() / girlGroups;
+            double boyLoad = boyGroups == 0 ? -1 : (double) boys.size() / boyGroups;
+            if (girlLoad >= boyLoad) girlGroups++; else boyGroups++;
+        }
+        if (girlGroups > girls.size() || boyGroups > boys.size()) throw new IllegalArgumentException("Too many groups for the available campers of one gender");
+        if (girlGroups > 0) assignToGroups(girls, createGroups(camp, "Girls Group", girlGroups, girls.size(), true), camp);
+        if (boyGroups > 0) assignToGroups(boys, createGroups(camp, "Boys Group", boyGroups, boys.size(), true), camp);
+    }
+
+    private List<DiscussionGroup> createGroups(Camp camp, String prefix, int count, int people, boolean separated) {
+        List<DiscussionGroup> result = new ArrayList<>();
         for (int i = 1; i <= count; i++) {
             DiscussionGroup group = new DiscussionGroup();
-            group.setCamp(camp); group.setName("Group " + i); group.setCapacity((int) Math.ceil((double) all.size() / count)); group.setGenderSeparated(req.genderSeparated());
-            generated.add(groups.save(group));
+            group.setCamp(camp); group.setName(prefix + " " + i); group.setCapacity((int) Math.ceil((double) people / count)); group.setGenderSeparated(separated);
+            result.add(groups.save(group));
         }
-        List<Camper> ordered = new ArrayList<>(all);
+        return result;
+    }
+
+    private void assignToGroups(List<Camper> people, List<DiscussionGroup> generated, Camp camp) {
+        List<Camper> ordered = new ArrayList<>(people);
         ordered.sort(Comparator.comparingInt((Camper c) -> c.ageOn(camp.getStartDate())).thenComparing(Camper::getName));
+        int count = generated.size();
         for (int i = 0; i < ordered.size(); i++) {
             int cycle = i % (count * 2); int index = cycle < count ? cycle : count * 2 - 1 - cycle;
             ordered.get(i).setDiscussionGroup(generated.get(index));
