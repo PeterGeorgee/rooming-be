@@ -11,11 +11,11 @@ public final class ApiModels { private ApiModels(){}
  public record MoveRequest(UUID roomId,UUID groupId){}
  public record GenderRequest(@NotNull Domain.Gender gender){}
  public record MatchRequest(@NotNull UUID matchedCamperId){}
- public record CamperView(UUID id,String name,Domain.Gender gender,LocalDate birthdate,int age,UUID roomId,String room,UUID groupId,String group,List<PreferenceView> preferences){}
+ public record CamperView(UUID id,String name,Domain.Gender gender,boolean genderAssumed,LocalDate birthdate,int age,UUID roomId,String room,UUID groupId,String group,List<PreferenceView> preferences){}
  public record PreferenceView(UUID id,String rawName,String matchedName,String status,Double similarity,List<UUID> alternatives){}
  public record RoomView(UUID id,String name,int capacity,Domain.Gender gender,String leaderName,long occupancy,double averageAge,List<CamperView> campers){}
  public record GroupView(UUID id,String name,Integer capacity,long occupancy,double averageAge,List<CamperView> campers){}
- public record Stats(long total,long boys,long girls,long unknownGender,double averageAge,long matched,long ambiguous,long unresolved,double satisfaction,double averageRoomAgeSpread){}
+ public record Stats(long total,long boys,long girls,long unknownGender,long assumedGender,double averageAge,long matched,long ambiguous,long unresolved,double satisfaction,double averageRoomAgeSpread){}
  public record Dashboard(Object camp,List<RoomView> rooms,List<GroupView> groups,List<CamperView> campers,Stats stats){}
  public record ImportResult(int imported,int boys,int girls,int unknownGender,double averageAge,List<String> warnings){}
 }

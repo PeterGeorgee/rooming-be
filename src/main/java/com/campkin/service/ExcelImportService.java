@@ -93,12 +93,42 @@ public class ExcelImportService {
         }
 
         matcher.resolve(campId);
+        int inferred = inferGenders(campId);
         List<Camper> all = campers.findByCampIdOrderByName(campId);
+        boys = (int) all.stream().filter(c -> c.getGender() == Domain.Gender.MALE).count();
+        girls = (int) all.stream().filter(c -> c.getGender() == Domain.Gender.FEMALE).count();
+        unknown = (int) all.stream().filter(c -> c.getGender() == Domain.Gender.UNKNOWN).count();
+        if (inferred > 0) warnings.add(inferred + " gender suggestion(s) were inferred from confirmed roommate links and still need review");
         double average = all.stream().mapToInt(c -> c.ageOn(camp.getStartDate())).average().orElse(0);
         return new ImportResult(boys + girls + unknown, boys, girls, unknown, Math.round(average * 10) / 10d, warnings);
     }
 
     private record ValidatedRow(String name, String normalizedName, LocalDate birthdate, Domain.Gender gender, Set<String> preferences) {}
+
+    @Transactional
+    public int inferGenders(UUID campId) {
+        List<Camper> all = campers.findByCampIdOrderByName(campId);
+        Map<UUID, Set<Domain.Gender>> evidence = new HashMap<>();
+        for (Preference preference : preferences.findByCamperCampId(campId)) {
+            Camper left = preference.getCamper(); Camper right = preference.getMatchedCamper();
+            if (right == null) continue;
+            addGenderEvidence(left, right, evidence);
+            addGenderEvidence(right, left, evidence);
+        }
+        int inferred = 0;
+        for (Camper camper : all) {
+            Set<Domain.Gender> candidates = evidence.getOrDefault(camper.getId(), Set.of());
+            if (camper.getGender() == Domain.Gender.UNKNOWN && candidates.size() == 1) {
+                camper.setGender(candidates.iterator().next()); camper.setGenderAssumed(true); inferred++;
+            }
+        }
+        return inferred;
+    }
+
+    private void addGenderEvidence(Camper target, Camper neighbor, Map<UUID, Set<Domain.Gender>> evidence) {
+        if (target.getGender() == Domain.Gender.UNKNOWN && neighbor.getGender() != Domain.Gender.UNKNOWN && !neighbor.isGenderAssumed())
+            evidence.computeIfAbsent(target.getId(), id -> new HashSet<>()).add(neighbor.getGender());
+    }
 
     private List<Map<String, String>> readRows(MultipartFile file) throws IOException {
         String name = Optional.ofNullable(file.getOriginalFilename()).orElse("").toLowerCase(Locale.ROOT);
