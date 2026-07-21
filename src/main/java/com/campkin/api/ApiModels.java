@@ -5,6 +5,7 @@ public final class ApiModels { private ApiModels(){}
  public record RoomRequest(@NotBlank String name,@Min(1) int capacity,@NotNull Domain.Gender gender){}
  public record BatchRoomRequest(@Min(1) @Max(100) int count,@Min(1) int capacity,@NotNull Domain.Gender gender){}
  public record RoomRenameRequest(@NotBlank @Size(max=120) String name){}
+ public record RoomLeaderUpdateRequest(@Size(max=180) String name){}
  public record RoomLeaderRequest(@NotNull UUID roomId,@NotBlank @Size(max=180) String name){}
  public record GenerateRoomsRequest(@NotNull List<@Valid RoomLeaderRequest> leaders){}
  public record GroupRequest(@Min(1) Integer numberOfGroups,@Min(1) Integer membersPerGroup,boolean genderSeparated){}
