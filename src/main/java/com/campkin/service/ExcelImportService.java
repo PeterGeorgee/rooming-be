@@ -98,7 +98,7 @@ public class ExcelImportService {
         boys = (int) all.stream().filter(c -> c.getGender() == Domain.Gender.MALE).count();
         girls = (int) all.stream().filter(c -> c.getGender() == Domain.Gender.FEMALE).count();
         unknown = (int) all.stream().filter(c -> c.getGender() == Domain.Gender.UNKNOWN).count();
-        if (inferred > 0) warnings.add(inferred + " gender suggestion(s) were inferred from confirmed roommate links and still need review");
+        if (inferred > 0) warnings.add(inferred + " reviewable gender suggestion(s) were added from roommate links and camp balancing");
         double average = all.stream().mapToInt(c -> c.ageOn(camp.getStartDate())).average().orElse(0);
         return new ImportResult(boys + girls + unknown, boys, girls, unknown, Math.round(average * 10) / 10d, warnings);
     }
@@ -108,26 +108,44 @@ public class ExcelImportService {
     @Transactional
     public int inferGenders(UUID campId) {
         List<Camper> all = campers.findByCampIdOrderByName(campId);
-        Map<UUID, Set<Domain.Gender>> evidence = new HashMap<>();
+        Map<UUID, Camper> byId = all.stream().collect(java.util.stream.Collectors.toMap(Camper::getId, c -> c));
+        Map<UUID, Set<UUID>> neighbors = new HashMap<>();
         for (Preference preference : preferences.findByCamperCampId(campId)) {
             Camper left = preference.getCamper(); Camper right = preference.getMatchedCamper();
             if (right == null) continue;
-            addGenderEvidence(left, right, evidence);
-            addGenderEvidence(right, left, evidence);
+            neighbors.computeIfAbsent(left.getId(), id -> new HashSet<>()).add(right.getId());
+            neighbors.computeIfAbsent(right.getId(), id -> new HashSet<>()).add(left.getId());
         }
         int inferred = 0;
-        for (Camper camper : all) {
-            Set<Domain.Gender> candidates = evidence.getOrDefault(camper.getId(), Set.of());
-            if (camper.getGender() == Domain.Gender.UNKNOWN && candidates.size() == 1) {
-                camper.setGender(candidates.iterator().next()); camper.setGenderAssumed(true); inferred++;
+        boolean changed;
+        do {
+            changed = false;
+            for (Camper camper : all) if (camper.getGender() == Domain.Gender.UNKNOWN) {
+                Set<Domain.Gender> candidates = neighbors.getOrDefault(camper.getId(), Set.of()).stream()
+                    .map(byId::get).filter(Objects::nonNull).map(Camper::getGender)
+                    .filter(g -> g != Domain.Gender.UNKNOWN).collect(java.util.stream.Collectors.toSet());
+                if (candidates.size() == 1) {
+                    camper.setGender(candidates.iterator().next()); camper.setGenderAssumed(true); inferred++; changed = true;
+                }
             }
+        } while (changed);
+
+        long girls = all.stream().filter(c -> c.getGender() == Domain.Gender.FEMALE).count();
+        long boys = all.stream().filter(c -> c.getGender() == Domain.Gender.MALE).count();
+        Set<UUID> visited = new HashSet<>();
+        for (Camper start : all) if (start.getGender() == Domain.Gender.UNKNOWN && visited.add(start.getId())) {
+            List<Camper> component = new ArrayList<>(); Deque<UUID> queue = new ArrayDeque<>(); queue.add(start.getId());
+            while (!queue.isEmpty()) {
+                UUID id = queue.remove(); Camper camper = byId.get(id);
+                if (camper == null || camper.getGender() != Domain.Gender.UNKNOWN) continue;
+                component.add(camper);
+                for (UUID next : neighbors.getOrDefault(id, Set.of())) if (byId.containsKey(next) && byId.get(next).getGender() == Domain.Gender.UNKNOWN && visited.add(next)) queue.add(next);
+            }
+            Domain.Gender assumed = girls <= boys ? Domain.Gender.FEMALE : Domain.Gender.MALE;
+            for (Camper camper : component) { camper.setGender(assumed); camper.setGenderAssumed(true); inferred++; }
+            if (assumed == Domain.Gender.FEMALE) girls += component.size(); else boys += component.size();
         }
         return inferred;
-    }
-
-    private void addGenderEvidence(Camper target, Camper neighbor, Map<UUID, Set<Domain.Gender>> evidence) {
-        if (target.getGender() == Domain.Gender.UNKNOWN && neighbor.getGender() != Domain.Gender.UNKNOWN && !neighbor.isGenderAssumed())
-            evidence.computeIfAbsent(target.getId(), id -> new HashSet<>()).add(neighbor.getGender());
     }
 
     private List<Map<String, String>> readRows(MultipartFile file) throws IOException {
