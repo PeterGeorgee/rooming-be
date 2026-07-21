@@ -36,6 +36,7 @@ public class AssignmentService {
         }
         for (Room room : campRooms) {
             room.setLeaderName(leaders.get(room.getId()));
+            room.setLeaderSleepRoom(room.getLeaderName() == null ? null : room);
             if (room.getLeaderName() != null && room.getCapacity() < 1)
                 throw new IllegalStateException(room.getName() + " has no bed for its leader");
         }

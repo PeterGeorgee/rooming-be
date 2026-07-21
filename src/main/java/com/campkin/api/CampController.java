@@ -9,7 +9,7 @@ import com.campkin.api.ApiModels.*; import com.campkin.domain.*; import com.camp
  @PostMapping("/camps/{id}/rooms") @ResponseStatus(HttpStatus.CREATED) Room room(@PathVariable UUID id,@Valid @RequestBody RoomRequest r){return service.addRoom(id,r);}
  @PostMapping("/camps/{id}/rooms/batch") @ResponseStatus(HttpStatus.CREATED) List<Room> rooms(@PathVariable UUID id,@Valid @RequestBody BatchRoomRequest r){return service.addRooms(id,r);}
  @PatchMapping("/rooms/{id}") Room renameRoom(@PathVariable UUID id,@Valid @RequestBody RoomRenameRequest r){return service.renameRoom(id,r);}
- @PatchMapping("/rooms/{id}/leader") Room updateRoomLeader(@PathVariable UUID id,@Valid @RequestBody RoomLeaderUpdateRequest r){return service.updateRoomLeader(id,r);}
+ @PatchMapping("/rooms/{id}/leader") void updateRoomLeader(@PathVariable UUID id,@Valid @RequestBody RoomLeaderUpdateRequest r){service.updateRoomLeader(id,r);}
  @DeleteMapping("/rooms/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) void deleteRoom(@PathVariable UUID id){service.deleteRoom(id);}
  @PostMapping(value="/camps/{id}/import",consumes=MediaType.MULTIPART_FORM_DATA_VALUE) ImportResult importCampers(@PathVariable UUID id,@RequestPart MultipartFile file)throws IOException{return importer.importFile(id,file);}
  @PostMapping("/camps/{id}/infer-genders") Map<String,Integer> inferGenders(@PathVariable UUID id){return Map.of("inferred",importer.inferGenders(id));}
