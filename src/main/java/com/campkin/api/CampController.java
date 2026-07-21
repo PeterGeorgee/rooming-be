@@ -9,10 +9,12 @@ import com.campkin.api.ApiModels.*; import com.campkin.domain.*; import com.camp
  @PostMapping("/camps/{id}/rooms/batch") @ResponseStatus(HttpStatus.CREATED) List<Room> rooms(@PathVariable UUID id,@Valid @RequestBody BatchRoomRequest r){return service.addRooms(id,r);}
  @PatchMapping("/rooms/{id}") Room renameRoom(@PathVariable UUID id,@Valid @RequestBody RoomRenameRequest r){return service.renameRoom(id,r);}
  @PostMapping(value="/camps/{id}/import",consumes=MediaType.MULTIPART_FORM_DATA_VALUE) ImportResult importCampers(@PathVariable UUID id,@RequestPart MultipartFile file)throws IOException{return importer.importFile(id,file);}
- @PostMapping("/camps/{id}/assign/rooms") void assignRooms(@PathVariable UUID id){assignments.assignRooms(id);} @PostMapping("/camps/{id}/assign/groups") void assignGroups(@PathVariable UUID id,@Valid @RequestBody GroupRequest r){assignments.assignGroups(id,r);}
+ @PostMapping("/camps/{id}/assign/rooms") void assignRooms(@PathVariable UUID id,@Valid @RequestBody GenerateRoomsRequest r){assignments.assignRooms(id,r);} @PostMapping("/camps/{id}/assign/groups") void assignGroups(@PathVariable UUID id,@Valid @RequestBody GroupRequest r){assignments.assignGroups(id,r);}
  @PatchMapping("/campers/{id}/assignment") void move(@PathVariable UUID id,@RequestBody MoveRequest r){service.move(id,r);}
  @PatchMapping("/campers/{id}/gender") void gender(@PathVariable UUID id,@Valid @RequestBody GenderRequest r){service.updateGender(id,r);}
  @PatchMapping("/preferences/{id}/resolve") void resolve(@PathVariable UUID id,@Valid @RequestBody MatchRequest r){Preference p=preferences.findById(id).orElseThrow();Camper c=campers.findById(r.matchedCamperId()).orElseThrow();if(c.getCamp().getId().equals(p.getCamper().getCamp().getId())){p.setMatchedCamper(c);p.setStatus(Domain.PreferenceStatus.MATCHED);p.setSimilarity(1d);p.setAlternatives(null);}else throw new IllegalArgumentException("Camper belongs to another camp");}
  @GetMapping(value="/camps/{id}/exports/rooms.pdf",produces=MediaType.APPLICATION_PDF_VALUE) ResponseEntity<byte[]> roomPdf(@PathVariable UUID id){return download(pdf.rooms(id),"room-assignments.pdf");} @GetMapping(value="/camps/{id}/exports/groups.pdf",produces=MediaType.APPLICATION_PDF_VALUE) ResponseEntity<byte[]> groupPdf(@PathVariable UUID id){return download(pdf.groups(id),"discussion-groups.pdf");}
  private ResponseEntity<byte[]> download(byte[] bytes,String name){return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=\""+name+"\"").body(bytes);}
 }
+
+

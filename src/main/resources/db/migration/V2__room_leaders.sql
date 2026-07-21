@@ -1,0 +1,1 @@
+ALTER TABLE rooms ADD COLUMN leader_name VARCHAR(180);
