@@ -37,23 +37,31 @@ public class PdfService {
         writer.setPageEvent(new Footer(camp.getName()));
         document.open();
 
+        DateTimeFormatter date = DateTimeFormatter.ofPattern("d MMM yyyy");
+        if (roomMode) {
+            List<RoomView> occupiedRooms = dashboard.rooms().stream().filter(r -> r.occupancy() > 0).toList();
+            for (int i = 0; i < occupiedRooms.size(); i++) {
+                if (i > 0) document.newPage();
+                addReportHeader(document, camp, reportName, date);
+                document.add(roomSection(occupiedRooms.get(i)));
+            }
+        } else {
+            addReportHeader(document, camp, reportName, date);
+            for (GroupView group : dashboard.groups()) document.add(groupSection(group));
+        }
+        document.close();
+        return output.toByteArray();
+    }
+
+    private void addReportHeader(Document document, Camp camp, String reportName, DateTimeFormatter date) {
         Paragraph campTitle = new Paragraph(camp.getName(), font(22, Font.BOLD, DARK));
         campTitle.setSpacingAfter(3);
         document.add(campTitle);
         Paragraph reportTitle = new Paragraph(reportName, font(13, Font.BOLD, TEAL));
         reportTitle.setSpacingAfter(4);
         document.add(reportTitle);
-        DateTimeFormatter date = DateTimeFormatter.ofPattern("d MMM yyyy");
         document.add(new Paragraph(camp.getStartDate().format(date) + " - " + camp.getEndDate().format(date) + "   |   Generated " + LocalDate.now().format(date), font(8, Font.NORMAL, MUTED)));
         document.add(spacer(10));
-
-        if (roomMode) {
-            for (RoomView room : dashboard.rooms().stream().filter(r -> r.occupancy() > 0).toList()) document.add(roomSection(room));
-        } else {
-            for (GroupView group : dashboard.groups()) document.add(groupSection(group));
-        }
-        document.close();
-        return output.toByteArray();
     }
 
     private PdfPTable roomSection(RoomView room) {
