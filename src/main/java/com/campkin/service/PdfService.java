@@ -68,7 +68,7 @@ public class PdfService {
         PdfPTable section = sectionTable();
         section.addCell(sectionHeader(room.name()));
         String meta = (room.gender().name().equals("FEMALE") ? "Girls" : "Boys") + "   |   Beds used: " + room.occupancy() + " / " + room.capacity();
-        if (room.leaderName() != null) meta += "   |   Leader: " + room.leaderName() + " (sleeps in " + room.leaderSleepRoom() + ")";
+        if (!room.leaders().isEmpty()) meta += "   |   Leaders: " + room.leaders().stream().map(l -> l.name() + " (sleeps in " + l.sleepRoom() + ")").reduce((a,b) -> a + ", " + b).orElse("");
         section.addCell(metaCell(meta));
         section.addCell(wrapped(roomMemberTable(room.campers())));
         return section;
@@ -77,7 +77,9 @@ public class PdfService {
     private PdfPTable groupSection(GroupView group) {
         PdfPTable section = sectionTable();
         section.addCell(sectionHeader(group.name()));
-        section.addCell(metaCell(group.occupancy() + " campers   |   Average age: " + group.averageAge()));
+        String meta = group.occupancy() + " campers   |   Average age: " + group.averageAge();
+        if (!group.leaders().isEmpty()) meta += "   |   Leaders: " + String.join(", ", group.leaders());
+        section.addCell(metaCell(meta));
         section.addCell(wrapped(memberTable(group.campers())));
         return section;
     }

@@ -19,6 +19,7 @@ public class AssignmentService {
     private final RoomRepository rooms;
     private final DiscussionGroupRepository groups;
     private final PreferenceRepository preferences;
+    private final RoomLeaderRepository roomLeaders;
 
     @Transactional
     public void assignRooms(UUID campId, GenerateRoomsRequest request) {
@@ -29,19 +30,7 @@ public class AssignmentService {
         if (all.stream().anyMatch(c -> c.getGender() == Domain.Gender.UNKNOWN))
             throw new IllegalStateException("Set Male or Female for every camper before generating rooms");
 
-        Map<UUID, String> leaders = new HashMap<>();
-        for (var leader : request.leaders()) {
-            if (leaders.put(leader.roomId(), leader.name().trim()) != null)
-                throw new IllegalArgumentException("Only one leader can be assigned to a room");
-        }
-        for (Room room : campRooms) {
-            room.setLeaderName(leaders.get(room.getId()));
-            room.setLeaderSleepRoom(room.getLeaderName() == null ? null : room);
-            if (room.getLeaderName() != null && room.getCapacity() < 1)
-                throw new IllegalStateException(room.getName() + " has no bed for its leader");
-        }
-        if (leaders.keySet().stream().anyMatch(id -> campRooms.stream().noneMatch(r -> r.getId().equals(id))))
-            throw new IllegalArgumentException("A selected leader room does not belong to this camp");
+        if (!request.leaders().isEmpty()) throw new IllegalArgumentException("Assign leaders from the Rooms page after generating rooms");
 
         all.forEach(c -> c.setRoom(null));
         Map<UUID, Set<UUID>> friendMap = friendMap(campId);
@@ -61,7 +50,7 @@ public class AssignmentService {
             List<Camper> ordered = components.stream().flatMap(Collection::stream).collect(Collectors.toCollection(ArrayList::new));
 
             for (Room room : available) {
-                if (room.getLeaderName() == null && placed.get(room.getId()).isEmpty()) {
+                if (leaderBeds(room) == 0 && placed.get(room.getId()).isEmpty()) {
                     Camper seed = ordered.removeFirst();
                     placed.get(room.getId()).add(seed);
                 }
@@ -81,18 +70,18 @@ public class AssignmentService {
     }
 
     private int usedBeds(Room room, Map<UUID, List<Camper>> placed) {
-        return placed.get(room.getId()).size() + (room.getLeaderName() == null ? 0 : 1);
+        return placed.get(room.getId()).size() + leaderBeds(room);
     }
 
     private int camperCapacity(Room room) {
-        return room.getCapacity() - (room.getLeaderName() == null ? 0 : 1);
+        return room.getCapacity() - leaderBeds(room);
     }
 
     private List<Room> selectActiveRooms(List<Room> genderRooms, int camperCount) {
-        List<Room> active = new ArrayList<>(genderRooms.stream().filter(r -> r.getLeaderName() != null).toList());
+        List<Room> active = new ArrayList<>(genderRooms.stream().filter(r -> leaderBeds(r) > 0).toList());
         int capacity = active.stream().mapToInt(this::camperCapacity).sum();
         List<Room> candidates = genderRooms.stream()
-            .filter(r -> r.getLeaderName() == null)
+            .filter(r -> leaderBeds(r) == 0)
             .sorted(Comparator.comparingInt(Room::getCapacity).reversed().thenComparing(Room::getName))
             .toList();
         for (Room room : candidates) {
@@ -103,6 +92,8 @@ public class AssignmentService {
         active.sort(Comparator.comparing(Room::getName));
         return active;
     }
+
+    private int leaderBeds(Room room) { return (int) roomLeaders.countBySleepRoomId(room.getId()); }
 
     private double placementScore(Camper camper, Room room, Map<UUID, List<Camper>> placed, Map<UUID, Set<UUID>> friends, Camp camp) {
         List<Camper> current = placed.get(room.getId());

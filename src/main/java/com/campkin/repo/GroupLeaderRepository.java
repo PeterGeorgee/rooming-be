@@ -1,0 +1,1 @@
+package com.campkin.repo; import com.campkin.domain.GroupLeader; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface GroupLeaderRepository extends JpaRepository<GroupLeader,UUID>{ List<GroupLeader> findByGroupIdOrderByName(UUID groupId); void deleteByGroupId(UUID groupId); }
