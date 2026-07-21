@@ -1,6 +1,6 @@
-# CampKin Backend
+# Vault HQ Backend
 
-Spring Boot API for CampKin room and discussion-group assignments.
+Spring Boot API for Vault HQ room and discussion-group assignments.
 
 ## Requirements
 

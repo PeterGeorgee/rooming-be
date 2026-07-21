@@ -17,11 +17,11 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class PdfService {
-    private static final Color DARK = new Color(21, 61, 57);
-    private static final Color TEAL = new Color(29, 98, 93);
-    private static final Color PALE = new Color(232, 240, 237);
-    private static final Color LINE = new Color(211, 222, 218);
-    private static final Color MUTED = new Color(91, 111, 107);
+    private static final Color DARK = new Color(23, 26, 31);
+    private static final Color TEAL = new Color(235, 23, 18);
+    private static final Color PALE = new Color(255, 240, 239);
+    private static final Color LINE = new Color(229, 226, 221);
+    private static final Color MUTED = new Color(99, 103, 108);
     private final CampService service;
 
     public byte[] rooms(UUID campId) { return render(campId, true); }
@@ -57,7 +57,7 @@ public class PdfService {
         Paragraph campTitle = new Paragraph(camp.getName(), font(22, Font.BOLD, DARK));
         campTitle.setSpacingAfter(3);
         document.add(campTitle);
-        Paragraph reportTitle = new Paragraph(reportName, font(13, Font.BOLD, TEAL));
+        Paragraph reportTitle = new Paragraph("Vault HQ - " + reportName, font(13, Font.BOLD, TEAL));
         reportTitle.setSpacingAfter(4);
         document.add(reportTitle);
         document.add(new Paragraph(camp.getStartDate().format(date) + " - " + camp.getEndDate().format(date) + "   |   Generated " + LocalDate.now().format(date), font(8, Font.NORMAL, MUTED)));
@@ -162,7 +162,7 @@ public class PdfService {
         private final String campName;
         Footer(String campName) { this.campName = campName; }
         @Override public void onEndPage(PdfWriter writer, Document document) {
-            ColumnText.showTextAligned(writer.getDirectContent(), Element.ALIGN_LEFT, new Phrase(campName, new Font(Font.HELVETICA, 7, Font.NORMAL, MUTED)), document.left(), document.bottom() - 18, 0);
+            ColumnText.showTextAligned(writer.getDirectContent(), Element.ALIGN_LEFT, new Phrase("Vault HQ | " + campName, new Font(Font.HELVETICA, 7, Font.NORMAL, MUTED)), document.left(), document.bottom() - 18, 0);
             ColumnText.showTextAligned(writer.getDirectContent(), Element.ALIGN_RIGHT, new Phrase("Page " + writer.getPageNumber(), new Font(Font.HELVETICA, 7, Font.NORMAL, MUTED)), document.right(), document.bottom() - 18, 0);
         }
     }
