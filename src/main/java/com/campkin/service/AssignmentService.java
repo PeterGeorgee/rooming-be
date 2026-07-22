@@ -189,8 +189,7 @@ public class AssignmentService {
             int count = req.numberOfGroups() != null ? req.numberOfGroups() : (int) Math.ceil((double) all.size() / req.membersPerGroup());
             if (count < 1) throw new IllegalArgumentException("At least one group is required");
             if (count > all.size()) throw new IllegalArgumentException("Number of groups cannot exceed number of campers");
-            groups.deleteByCampId(campId);
-            groups.flush();
+            clearAndDeleteDiscussionGroups(campId, all);
             assignToGroups(all, createGroups(camp, "Group", count, all.size(), false), camp);
             return;
         }
@@ -221,10 +220,16 @@ public class AssignmentService {
         if (girls.isEmpty() && girlGroups > 0) throw new IllegalArgumentException("Girls' groups cannot be created because there are no female campers");
         if (boys.isEmpty() && boyGroups > 0) throw new IllegalArgumentException("Boys' groups cannot be created because there are no male campers");
         if (girlGroups > girls.size() || boyGroups > boys.size()) throw new IllegalArgumentException("Too many groups for the available campers of one gender");
-        groups.deleteByCampId(campId);
-        groups.flush();
+        clearAndDeleteDiscussionGroups(campId, all);
         if (girlGroups > 0) assignToGroups(girls, createGroups(camp, "Girls Group", girlGroups, girls.size(), true), camp);
         if (boyGroups > 0) assignToGroups(boys, createGroups(camp, "Boys Group", boyGroups, boys.size(), true), camp);
+    }
+
+    private void clearAndDeleteDiscussionGroups(UUID campId, List<Camper> all) {
+        all.forEach(camper -> camper.setDiscussionGroup(null));
+        campers.flush();
+        groups.deleteByCampId(campId);
+        groups.flush();
     }
 
     private List<DiscussionGroup> createGroups(Camp camp, String prefix, int count, int people, boolean separated) {
