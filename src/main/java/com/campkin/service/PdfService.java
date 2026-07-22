@@ -26,6 +26,19 @@ public class PdfService {
 
     public byte[] rooms(UUID campId) { return render(campId, true); }
     public byte[] groups(UUID campId) { return render(campId, false); }
+    public byte[] caring(UUID campId) {
+        Dashboard dashboard = service.dashboard(campId);
+        Camp camp = (Camp) dashboard.camp();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        Document document = new Document(PageSize.A4, 34, 34, 42, 42);
+        PdfWriter writer = PdfWriter.getInstance(document, output);
+        writer.setPageEvent(new Footer(camp.getName()));
+        document.open();
+        addReportHeader(document, camp, "Caring Groups", DateTimeFormatter.ofPattern("d MMM yyyy"));
+        for (CaringGroupView group : dashboard.caringGroups()) document.add(caringSection(group));
+        document.close();
+        return output.toByteArray();
+    }
 
     private byte[] render(UUID campId, boolean roomMode) {
         Dashboard dashboard = service.dashboard(campId);
@@ -79,6 +92,17 @@ public class PdfService {
         section.addCell(sectionHeader(group.name()));
         String meta = group.occupancy() + " campers   |   Average age: " + group.averageAge();
         if (!group.leaders().isEmpty()) meta += "   |   Leaders: " + String.join(", ", group.leaders());
+        section.addCell(metaCell(meta));
+        section.addCell(wrapped(memberTable(group.campers())));
+        return section;
+    }
+
+    private PdfPTable caringSection(CaringGroupView group) {
+        PdfPTable section = sectionTable();
+        section.addCell(sectionHeader(group.name()));
+        String gender = group.gender().name().equals("FEMALE") ? "Girls" : "Boys";
+        String leader = group.leaderName() == null || group.leaderName().isBlank() ? "Unassigned" : group.leaderName();
+        String meta = gender + "   |   " + group.occupancy() + " campers   |   Average age: " + group.averageAge() + "   |   Leader: " + leader;
         section.addCell(metaCell(meta));
         section.addCell(wrapped(memberTable(group.campers())));
         return section;
