@@ -15,6 +15,8 @@ import com.campkin.api.ApiModels.*; import com.campkin.domain.*; import com.camp
  @PatchMapping("/rooms/{id}") Room renameRoom(@PathVariable UUID id,@Valid @RequestBody RoomRenameRequest r){access.requireRoom(id);return service.renameRoom(id,r);}
  @PutMapping("/rooms/{id}/leaders") void updateRoomLeaders(@PathVariable UUID id,@Valid @RequestBody RoomLeadersUpdateRequest r){access.requireRoom(id);service.updateRoomLeaders(id,r);}
  @PutMapping("/groups/{id}/leaders") void updateGroupLeaders(@PathVariable UUID id,@Valid @RequestBody GroupLeadersUpdateRequest r){access.requireGroup(id);service.updateGroupLeaders(id,r);}
+ @PostMapping("/camps/{id}/rooms/leaders/auto") void autoRoomLeaders(@PathVariable UUID id){access.requireCamp(id);service.autoAssignRoomLeaders(id);}
+ @PostMapping("/camps/{id}/groups/leaders/auto") void autoGroupLeaders(@PathVariable UUID id,@Valid @RequestBody AutoGroupLeadersRequest r){access.requireCamp(id);service.autoAssignGroupLeaders(id,r);}
  @PatchMapping("/caring-groups/{id}/leader") void updateCaringLeader(@PathVariable UUID id,@Valid @RequestBody CaringLeaderUpdateRequest r){access.requireCaringGroup(id);service.updateCaringLeader(id,r);}
  @DeleteMapping("/rooms/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) void deleteRoom(@PathVariable UUID id){access.requireRoom(id);service.deleteRoom(id);}
  @PostMapping(value="/camps/{id}/import",consumes=MediaType.MULTIPART_FORM_DATA_VALUE) ImportResult importCampers(@PathVariable UUID id,@RequestPart MultipartFile file)throws IOException{access.requireCamp(id);return importer.importFile(id,file);}

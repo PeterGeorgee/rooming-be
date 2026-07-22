@@ -81,7 +81,7 @@ public class PdfService {
         PdfPTable section = sectionTable();
         section.addCell(sectionHeader(room.name()));
         String meta = (room.gender().name().equals("FEMALE") ? "Girls" : "Boys") + "   |   Beds used: " + room.occupancy() + " / " + room.capacity();
-        if (!room.leaders().isEmpty()) meta += "   |   Leaders: " + room.leaders().stream().map(l -> l.name() + " (sleeps in " + l.sleepRoom() + ")").reduce((a,b) -> a + ", " + b).orElse("");
+        if (!room.leaders().isEmpty()) meta += "   |   Leaders: " + room.leaders().stream().map(l -> l.name() + (l.sleepRoom() == null ? "" : " (sleeps in " + l.sleepRoom() + ")")).reduce((a,b) -> a + ", " + b).orElse("");
         section.addCell(metaCell(meta));
         section.addCell(wrapped(roomMemberTable(room.campers())));
         return section;

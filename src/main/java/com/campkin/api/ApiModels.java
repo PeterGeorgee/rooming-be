@@ -13,6 +13,7 @@ public final class ApiModels { private ApiModels(){}
  public record RoomLeaderItem(@NotNull UUID leaderId,@NotNull UUID sleepRoomId){}
  public record RoomLeadersUpdateRequest(@NotNull List<@Valid RoomLeaderItem> leaders){}
  public record GroupLeadersUpdateRequest(@NotNull List<@NotNull UUID> leaderIds){}
+ public record AutoGroupLeadersRequest(@NotEmpty List<@NotNull UUID> leaderIds){}
  public record LeaderView(UUID id,UUID leaderId,String name,UUID sleepRoomId,String sleepRoom){}
  public record LeaderRecordView(UUID id,String name,Domain.Gender gender,boolean genderAssumed){}
  public record LeaderRequest(@NotBlank @Size(max=180) String name,@NotNull Domain.Gender gender){}
