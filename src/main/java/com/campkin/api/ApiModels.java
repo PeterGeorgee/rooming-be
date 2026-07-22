@@ -20,7 +20,7 @@ public final class ApiModels { private ApiModels(){}
  public record LeaderImportResult(int imported,int added,int updated,List<String> errors){}
  public record RoomLeaderRequest(@NotNull UUID roomId,@NotBlank @Size(max=180) String name){}
  public record GenerateRoomsRequest(@NotNull List<@Valid RoomLeaderRequest> leaders){}
- public record GroupRequest(@Min(1) Integer numberOfGroups,@Min(1) Integer membersPerGroup,boolean genderSeparated){}
+ public record GroupRequest(@Min(1) Integer numberOfGroups,@Min(1) Integer membersPerGroup,boolean genderSeparated,@Min(0) Integer femaleGroups,@Min(0) Integer maleGroups){}
  public record MoveRequest(UUID roomId,UUID groupId,UUID caringGroupId){}
  public record GenerateCaringRequest(@NotEmpty List<@NotNull UUID> leaderIds){}
  public record CaringLeaderUpdateRequest(@NotNull UUID leaderId){}

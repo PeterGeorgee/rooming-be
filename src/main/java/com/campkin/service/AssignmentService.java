@@ -185,11 +185,11 @@ public class AssignmentService {
         Camp camp = camps.findById(campId).orElseThrow();
         List<Camper> all = campers.findByCampIdOrderByName(campId);
         if (all.isEmpty()) throw new IllegalStateException("Import campers first");
-        int count = req.numberOfGroups() != null ? req.numberOfGroups() : (int) Math.ceil((double) all.size() / req.membersPerGroup());
-        if (count < 1) throw new IllegalArgumentException("At least one group is required");
-        if (count > all.size()) throw new IllegalArgumentException("Number of groups cannot exceed number of campers");
-        groups.deleteByCampId(campId);
         if (!req.genderSeparated()) {
+            int count = req.numberOfGroups() != null ? req.numberOfGroups() : (int) Math.ceil((double) all.size() / req.membersPerGroup());
+            if (count < 1) throw new IllegalArgumentException("At least one group is required");
+            if (count > all.size()) throw new IllegalArgumentException("Number of groups cannot exceed number of campers");
+            groups.deleteByCampId(campId);
             assignToGroups(all, createGroups(camp, "Group", count, all.size(), false), camp);
             return;
         }
@@ -197,17 +197,30 @@ public class AssignmentService {
         List<Camper> girls = all.stream().filter(c -> c.getGender() == Domain.Gender.FEMALE).toList();
         List<Camper> boys = all.stream().filter(c -> c.getGender() == Domain.Gender.MALE).toList();
         if (girls.size() + boys.size() != all.size()) throw new IllegalStateException("Set every camper's gender before generating separated groups");
-        int activeGenders = (girls.isEmpty() ? 0 : 1) + (boys.isEmpty() ? 0 : 1);
-        if (count < activeGenders) throw new IllegalArgumentException("At least one group is required for each gender that has campers");
-
-        int girlGroups = girls.isEmpty() ? 0 : 1;
-        int boyGroups = boys.isEmpty() ? 0 : 1;
-        while (girlGroups + boyGroups < count) {
-            double girlLoad = girlGroups == 0 ? -1 : (double) girls.size() / girlGroups;
-            double boyLoad = boyGroups == 0 ? -1 : (double) boys.size() / boyGroups;
-            if (girlLoad >= boyLoad) girlGroups++; else boyGroups++;
+        boolean explicitGenderCounts = req.femaleGroups() != null || req.maleGroups() != null;
+        int girlGroups;
+        int boyGroups;
+        if (explicitGenderCounts) {
+            girlGroups = req.femaleGroups() == null ? 0 : req.femaleGroups();
+            boyGroups = req.maleGroups() == null ? 0 : req.maleGroups();
+        } else {
+            int count = req.numberOfGroups() != null ? req.numberOfGroups() : (int) Math.ceil((double) all.size() / req.membersPerGroup());
+            int activeGenders = (girls.isEmpty() ? 0 : 1) + (boys.isEmpty() ? 0 : 1);
+            if (count < activeGenders) throw new IllegalArgumentException("At least one group is required for each gender that has campers");
+            girlGroups = girls.isEmpty() ? 0 : 1;
+            boyGroups = boys.isEmpty() ? 0 : 1;
+            while (girlGroups + boyGroups < count) {
+                double girlLoad = girlGroups == 0 ? -1 : (double) girls.size() / girlGroups;
+                double boyLoad = boyGroups == 0 ? -1 : (double) boys.size() / boyGroups;
+                if (girlLoad >= boyLoad) girlGroups++; else boyGroups++;
+            }
         }
+        if (!girls.isEmpty() && girlGroups < 1) throw new IllegalArgumentException("At least one girls' group is required");
+        if (!boys.isEmpty() && boyGroups < 1) throw new IllegalArgumentException("At least one boys' group is required");
+        if (girls.isEmpty() && girlGroups > 0) throw new IllegalArgumentException("Girls' groups cannot be created because there are no female campers");
+        if (boys.isEmpty() && boyGroups > 0) throw new IllegalArgumentException("Boys' groups cannot be created because there are no male campers");
         if (girlGroups > girls.size() || boyGroups > boys.size()) throw new IllegalArgumentException("Too many groups for the available campers of one gender");
+        groups.deleteByCampId(campId);
         if (girlGroups > 0) assignToGroups(girls, createGroups(camp, "Girls Group", girlGroups, girls.size(), true), camp);
         if (boyGroups > 0) assignToGroups(boys, createGroups(camp, "Boys Group", boyGroups, boys.size(), true), camp);
     }
