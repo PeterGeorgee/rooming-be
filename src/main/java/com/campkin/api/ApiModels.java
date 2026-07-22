@@ -2,6 +2,11 @@ package com.campkin.api;
 import com.campkin.domain.Domain; import jakarta.validation.Valid; import jakarta.validation.constraints.*; import java.time.*; import java.util.*;
 public final class ApiModels { private ApiModels(){}
  public record CampRequest(@NotBlank String name,@NotNull LocalDate startDate,@NotNull LocalDate endDate,String description){}
+ public record RegisterRequest(@NotBlank @Size(max=120) String name,@NotBlank @Email @Size(max=254) String email,@NotBlank @Size(min=8,max=100) String password){}
+ public record LoginRequest(@NotBlank @Email String email,@NotBlank String password){}
+ public record JoinCampRequest(@NotBlank @Size(max=20) String code){}
+ public record UserView(UUID id,String name,String email){}
+ public record AuthResponse(String token,UserView user){}
  public record RoomRequest(@NotBlank String name,@Min(1) int capacity,@NotNull Domain.Gender gender){}
  public record BatchRoomRequest(@Min(1) @Max(100) int count,@Min(1) int capacity,@NotNull Domain.Gender gender){}
  public record RoomRenameRequest(@NotBlank @Size(max=120) String name){}

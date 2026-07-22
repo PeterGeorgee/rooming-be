@@ -1,0 +1,1 @@
+package com.campkin.repo; import com.campkin.domain.UserSession; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface UserSessionRepository extends JpaRepository<UserSession,UUID>{Optional<UserSession> findByTokenHash(String tokenHash);void deleteByTokenHash(String tokenHash);}

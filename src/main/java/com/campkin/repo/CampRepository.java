@@ -1,1 +1,1 @@
-package com.campkin.repo; import com.campkin.domain.Camp; import org.springframework.data.jpa.repository.JpaRepository; import java.util.UUID; public interface CampRepository extends JpaRepository<Camp,UUID>{}
+package com.campkin.repo; import com.campkin.domain.Camp; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface CampRepository extends JpaRepository<Camp,UUID>{Optional<Camp> findByJoinCodeIgnoreCase(String joinCode);boolean existsByJoinCodeIgnoreCase(String joinCode);}

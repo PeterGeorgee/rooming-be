@@ -1,0 +1,3 @@
+package com.campkin.service;
+import com.campkin.config.AuthInterceptor; import com.campkin.domain.AppUser; import jakarta.servlet.http.HttpServletRequest; import lombok.RequiredArgsConstructor; import org.springframework.http.*; import org.springframework.stereotype.Component; import org.springframework.web.server.ResponseStatusException;
+@Component @RequiredArgsConstructor public class AuthContext {private final HttpServletRequest request;public AppUser user(){Object user=request.getAttribute(AuthInterceptor.USER_ATTRIBUTE);if(user instanceof AppUser appUser)return appUser;throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Sign in is required");}}
