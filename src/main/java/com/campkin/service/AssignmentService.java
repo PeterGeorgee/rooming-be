@@ -190,6 +190,7 @@ public class AssignmentService {
             if (count < 1) throw new IllegalArgumentException("At least one group is required");
             if (count > all.size()) throw new IllegalArgumentException("Number of groups cannot exceed number of campers");
             groups.deleteByCampId(campId);
+            groups.flush();
             assignToGroups(all, createGroups(camp, "Group", count, all.size(), false), camp);
             return;
         }
@@ -221,6 +222,7 @@ public class AssignmentService {
         if (boys.isEmpty() && boyGroups > 0) throw new IllegalArgumentException("Boys' groups cannot be created because there are no male campers");
         if (girlGroups > girls.size() || boyGroups > boys.size()) throw new IllegalArgumentException("Too many groups for the available campers of one gender");
         groups.deleteByCampId(campId);
+        groups.flush();
         if (girlGroups > 0) assignToGroups(girls, createGroups(camp, "Girls Group", girlGroups, girls.size(), true), camp);
         if (boyGroups > 0) assignToGroups(boys, createGroups(camp, "Boys Group", boyGroups, boys.size(), true), camp);
     }
