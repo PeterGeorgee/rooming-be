@@ -11,10 +11,12 @@ import com.campkin.api.ApiModels.*; import com.campkin.domain.*; import com.camp
  @PatchMapping("/rooms/{id}") Room renameRoom(@PathVariable UUID id,@Valid @RequestBody RoomRenameRequest r){access.requireRoom(id);return service.renameRoom(id,r);}
  @PutMapping("/rooms/{id}/leaders") void updateRoomLeaders(@PathVariable UUID id,@Valid @RequestBody RoomLeadersUpdateRequest r){access.requireRoom(id);service.updateRoomLeaders(id,r);}
  @PutMapping("/groups/{id}/leaders") void updateGroupLeaders(@PathVariable UUID id,@Valid @RequestBody GroupLeadersUpdateRequest r){access.requireGroup(id);service.updateGroupLeaders(id,r);}
+ @PatchMapping("/caring-groups/{id}/leader") void updateCaringLeader(@PathVariable UUID id,@Valid @RequestBody CaringLeaderUpdateRequest r){access.requireCaringGroup(id);service.updateCaringLeader(id,r);}
  @DeleteMapping("/rooms/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) void deleteRoom(@PathVariable UUID id){access.requireRoom(id);service.deleteRoom(id);}
  @PostMapping(value="/camps/{id}/import",consumes=MediaType.MULTIPART_FORM_DATA_VALUE) ImportResult importCampers(@PathVariable UUID id,@RequestPart MultipartFile file)throws IOException{access.requireCamp(id);return importer.importFile(id,file);}
  @PostMapping("/camps/{id}/infer-genders") Map<String,Integer> inferGenders(@PathVariable UUID id){access.requireCamp(id);return Map.of("inferred",importer.inferGenders(id));}
  @PostMapping("/camps/{id}/assign/rooms") void assignRooms(@PathVariable UUID id,@Valid @RequestBody GenerateRoomsRequest r){access.requireCamp(id);assignments.assignRooms(id,r);} @PostMapping("/camps/{id}/assign/groups") void assignGroups(@PathVariable UUID id,@Valid @RequestBody GroupRequest r){access.requireCamp(id);assignments.assignGroups(id,r);}
+ @PostMapping("/camps/{id}/assign/caring") void assignCaring(@PathVariable UUID id,@Valid @RequestBody GenerateCaringRequest r){access.requireCamp(id);assignments.assignCaring(id,r);}
  @PatchMapping("/campers/{id}/assignment") void move(@PathVariable UUID id,@RequestBody MoveRequest r){access.requireCamper(id);service.move(id,r);}
  @PatchMapping("/campers/{id}/gender") void gender(@PathVariable UUID id,@Valid @RequestBody GenderRequest r){access.requireCamper(id);service.updateGender(id,r);}
  @DeleteMapping("/campers/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) void deleteCamper(@PathVariable UUID id){access.requireCamper(id);service.deleteCamper(id);}

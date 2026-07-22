@@ -1,0 +1,1 @@
+package com.campkin.repo; import com.campkin.domain.CaringGroup; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface CaringGroupRepository extends JpaRepository<CaringGroup,UUID>{List<CaringGroup> findByCampIdOrderByName(UUID campId);void deleteByCampId(UUID campId);}
