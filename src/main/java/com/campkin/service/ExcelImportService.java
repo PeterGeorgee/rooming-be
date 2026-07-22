@@ -1,6 +1,7 @@
 package com.campkin.service;
 
 import com.campkin.api.ApiModels.ImportResult;
+import com.campkin.api.ApiModels.MissingCamper;
 import com.campkin.api.ImportValidationException;
 import com.campkin.domain.*;
 import com.campkin.repo.*;
@@ -72,6 +73,8 @@ public class ExcelImportService {
         if (!errors.isEmpty()) throw new ImportValidationException(errors);
 
         List<Camper> beforeImport = campers.findByCampIdOrderByName(campId);
+        Set<String> importedNames = validRows.stream().map(ValidatedRow::normalizedName).collect(java.util.stream.Collectors.toSet());
+        List<MissingCamper> missingCampers = beforeImport.stream().filter(camper -> !importedNames.contains(camper.getNormalizedName())).map(camper -> new MissingCamper(camper.getId(), camper.getName())).toList();
         boolean existingAssignments = beforeImport.stream().anyMatch(c -> c.getRoom() != null);
         Map<String, Camper> existingByName = new HashMap<>();
         for (Camper camper : beforeImport) existingByName.putIfAbsent(camper.getNormalizedName(), camper);
@@ -116,7 +119,7 @@ public class ExcelImportService {
         if (inferred > 0) warnings.add(inferred + " reviewable gender suggestion(s) were added from roommate links and camp balancing");
         double average = all.stream().mapToInt(c -> c.ageOn(camp.getStartDate())).average().orElse(0);
         if (added > 0) warnings.add(added + " new camper(s) added; existing campers were not duplicated");
-        return new ImportResult(validRows.size(), added, updated, existingAssignments, boys, girls, unknown, Math.round(average * 10) / 10d, warnings);
+        return new ImportResult(validRows.size(), added, updated, existingAssignments, boys, girls, unknown, Math.round(average * 10) / 10d, warnings, missingCampers);
     }
 
     private record ValidatedRow(String name, String normalizedName, LocalDate birthdate, Domain.Gender gender, Set<String> preferences) {}
