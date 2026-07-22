@@ -1,11 +1,15 @@
 package com.campkin.api;
 import com.campkin.api.ApiModels.*; import com.campkin.domain.*; import com.campkin.repo.*; import com.campkin.service.*; import jakarta.validation.Valid; import lombok.RequiredArgsConstructor; import org.springframework.http.*; import org.springframework.web.bind.annotation.*; import org.springframework.web.multipart.MultipartFile; import java.io.*; import java.time.*; import java.util.*;
 @RestController @RequestMapping("/api") @RequiredArgsConstructor public class CampController {
- private final CampService service; private final ExcelImportService importer; private final AssignmentService assignments; private final PdfService pdf; private final PreferenceRepository preferences; private final CamperRepository campers; private final AccessService access;
+ private final CampService service; private final ExcelImportService importer; private final LeaderImportService leaderImporter; private final AssignmentService assignments; private final PdfService pdf; private final PreferenceRepository preferences; private final CamperRepository campers; private final AccessService access;
  @GetMapping("/health") Map<String,String> health(){return Map.of("status","ok");}
  @GetMapping("/camps") List<Camp> camps(){return service.list();} @PostMapping("/camps") @ResponseStatus(HttpStatus.CREATED) Camp create(@Valid @RequestBody CampRequest r){return service.create(r);}
  @DeleteMapping("/camps/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) void deleteCamp(@PathVariable UUID id){access.requireOwner(id);service.deleteCamp(id);}
  @GetMapping("/camps/{id}/dashboard") Dashboard dashboard(@PathVariable UUID id){access.requireCamp(id);return service.dashboard(id);} @GetMapping("/camps/{id}/campers/search") List<CamperView> search(@PathVariable UUID id,@RequestParam String q){access.requireCamp(id);return service.search(id,q);}
+ @PostMapping("/camps/{id}/leaders") @ResponseStatus(HttpStatus.CREATED) Leader addLeader(@PathVariable UUID id,@Valid @RequestBody LeaderRequest r){access.requireCamp(id);return service.addLeader(id,r);}
+ @PatchMapping("/leaders/{id}") Leader updateLeader(@PathVariable UUID id,@Valid @RequestBody LeaderRequest r){access.requireLeader(id);return service.updateLeader(id,r);}
+ @DeleteMapping("/leaders/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) void deleteLeader(@PathVariable UUID id){access.requireLeader(id);service.deleteLeader(id);}
+ @PostMapping(value="/camps/{id}/leaders/import",consumes=MediaType.MULTIPART_FORM_DATA_VALUE) LeaderImportResult importLeaders(@PathVariable UUID id,@RequestPart MultipartFile file)throws IOException{access.requireCamp(id);return leaderImporter.importFile(id,file);}
  @PostMapping("/camps/{id}/rooms") @ResponseStatus(HttpStatus.CREATED) Room room(@PathVariable UUID id,@Valid @RequestBody RoomRequest r){access.requireCamp(id);return service.addRoom(id,r);}
  @PostMapping("/camps/{id}/rooms/batch") @ResponseStatus(HttpStatus.CREATED) List<Room> rooms(@PathVariable UUID id,@Valid @RequestBody BatchRoomRequest r){access.requireCamp(id);return service.addRooms(id,r);}
  @PatchMapping("/rooms/{id}") Room renameRoom(@PathVariable UUID id,@Valid @RequestBody RoomRenameRequest r){access.requireRoom(id);return service.renameRoom(id,r);}

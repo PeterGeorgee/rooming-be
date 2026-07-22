@@ -22,6 +22,7 @@ public class AssignmentService {
     private final PreferenceRepository preferences;
     private final RoomLeaderRepository roomLeaders;
     private final CaringGroupRepository caringGroups;
+    private final LeaderRepository leaders;
 
     @Transactional
     public void assignCaring(UUID campId, GenerateCaringRequest request) {
@@ -30,7 +31,9 @@ public class AssignmentService {
         if (all.isEmpty()) throw new IllegalStateException("Import campers before generating Caring groups");
         if (all.stream().anyMatch(c -> c.getGender() == Domain.Gender.UNKNOWN))
             throw new IllegalStateException("Set Male or Female for every camper before generating Caring groups");
-        if (request.leaders().stream().anyMatch(l -> l.gender() == Domain.Gender.UNKNOWN))
+        List<Leader> selected=request.leaderIds().stream().distinct().map(id->leaders.findById(id).orElseThrow()).toList();
+        if(selected.stream().anyMatch(l->!l.getCamp().getId().equals(campId)))throw new IllegalArgumentException("A selected leader belongs to another camp");
+        if (selected.stream().anyMatch(l -> l.getGender() == Domain.Gender.UNKNOWN))
             throw new IllegalArgumentException("Every Caring leader must be Male or Female");
 
         all.forEach(c -> c.setCaringGroup(null));
@@ -39,21 +42,21 @@ public class AssignmentService {
 
         for (Domain.Gender gender : List.of(Domain.Gender.FEMALE, Domain.Gender.MALE)) {
             List<Camper> people = all.stream().filter(c -> c.getGender() == gender).toList();
-            var leaders = request.leaders().stream().filter(l -> l.gender() == gender).toList();
-            if (people.isEmpty() && !leaders.isEmpty())
+            var genderLeaders = selected.stream().filter(l -> l.getGender() == gender).toList();
+            if (people.isEmpty() && !genderLeaders.isEmpty())
                 throw new IllegalArgumentException("There are no " + (gender == Domain.Gender.FEMALE ? "female" : "male") + " campers to assign to these leaders");
-            if (!people.isEmpty() && leaders.isEmpty())
+            if (!people.isEmpty() && genderLeaders.isEmpty())
                 throw new IllegalArgumentException("Add at least one " + (gender == Domain.Gender.FEMALE ? "female" : "male") + " Caring leader");
-            if (leaders.size() > people.size() && !people.isEmpty())
+            if (genderLeaders.size() > people.size() && !people.isEmpty())
                 throw new IllegalArgumentException("There cannot be more " + gender.name().toLowerCase() + " leaders than campers");
-            if (leaders.isEmpty()) continue;
+            if (genderLeaders.isEmpty()) continue;
 
             List<CaringGroup> generated = new ArrayList<>();
-            for (int i = 0; i < leaders.size(); i++) {
+            for (int i = 0; i < genderLeaders.size(); i++) {
                 CaringGroup group = new CaringGroup();
                 group.setCamp(camp);
                 group.setName((gender == Domain.Gender.FEMALE ? "Girls Caring " : "Boys Caring ") + (i + 1));
-                group.setLeaderName(leaders.get(i).name().trim());
+                group.setLeaderName(genderLeaders.get(i).getName());
                 group.setGender(gender);
                 generated.add(caringGroups.save(group));
             }

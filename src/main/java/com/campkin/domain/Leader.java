@@ -1,0 +1,2 @@
+package com.campkin.domain; import jakarta.persistence.*; import lombok.*; import java.util.*;
+@Entity @Table(name="leaders") @Getter @Setter @NoArgsConstructor public class Leader {@Id private UUID id=UUID.randomUUID();@ManyToOne(optional=false) @JoinColumn(name="camp_id") private Camp camp;@Column(nullable=false) private String name;@Column(name="normalized_name",nullable=false) private String normalizedName;@Enumerated(EnumType.STRING) @Column(nullable=false) private Domain.Gender gender;}

@@ -167,7 +167,7 @@ public class ExcelImportService {
         return inferred;
     }
 
-    private List<Map<String, String>> readRows(MultipartFile file) throws IOException {
+    List<Map<String, String>> readRows(MultipartFile file) throws IOException {
         String name = Optional.ofNullable(file.getOriginalFilename()).orElse("").toLowerCase(Locale.ROOT);
         if (name.endsWith(".csv")) return csvRows(file.getInputStream());
         if (!name.endsWith(".xlsx") && !name.endsWith(".xls")) throw new IllegalArgumentException("Choose a .csv, .xlsx, or .xls file");
@@ -246,7 +246,7 @@ public class ExcelImportService {
     private List<String> splitPreferences(String value) { return value == null ? List.of() : Arrays.stream(value.split("[,;/\\r\\n]+")).map(String::trim).filter(v -> !v.isBlank()).toList(); }
     private String stripEmbeddedDate(String value) { return EMBEDDED_DATE.matcher(value == null ? "" : value).replaceFirst("").trim(); }
     private LocalDate embeddedDate(String value) { Matcher m = EMBEDDED_DATE.matcher(value == null ? "" : value); return m.find() ? LocalDate.parse(m.group(1)) : null; }
-    private Domain.Gender parseGender(String value) {
+    Domain.Gender parseGender(String value) {
         String normalized = value.trim().toLowerCase(Locale.ROOT);
         if (Set.of("m", "male", "boy").contains(normalized)) return Domain.Gender.MALE;
         if (Set.of("f", "female", "girl").contains(normalized)) return Domain.Gender.FEMALE;

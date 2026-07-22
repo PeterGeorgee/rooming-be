@@ -1,0 +1,1 @@
+package com.campkin.repo; import com.campkin.domain.Leader; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface LeaderRepository extends JpaRepository<Leader,UUID>{List<Leader> findByCampIdOrderByName(UUID campId);Optional<Leader> findByCampIdAndNormalizedName(UUID campId,String normalizedName);}
