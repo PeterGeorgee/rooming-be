@@ -14,7 +14,7 @@ public final class ApiModels { private ApiModels(){}
  public record RoomLeadersUpdateRequest(@NotNull List<@Valid RoomLeaderItem> leaders){}
  public record GroupLeadersUpdateRequest(@NotNull List<@NotNull UUID> leaderIds){}
  public record LeaderView(UUID id,UUID leaderId,String name,UUID sleepRoomId,String sleepRoom){}
- public record LeaderRecordView(UUID id,String name,Domain.Gender gender){}
+ public record LeaderRecordView(UUID id,String name,Domain.Gender gender,boolean genderAssumed){}
  public record LeaderRequest(@NotBlank @Size(max=180) String name,@NotNull Domain.Gender gender){}
  public record LeaderImportResult(int imported,int added,int updated,List<String> errors){}
  public record RoomLeaderRequest(@NotNull UUID roomId,@NotBlank @Size(max=180) String name){}
