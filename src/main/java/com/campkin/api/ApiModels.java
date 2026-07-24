@@ -35,5 +35,7 @@ public final class ApiModels { private ApiModels(){}
  public record Stats(long total,long boys,long girls,long unknownGender,long assumedGender,double averageAge,long matched,long ambiguous,long unresolved,double satisfaction,double averageRoomAgeSpread){}
  public record Dashboard(Object camp,List<RoomView> rooms,List<GroupView> groups,List<CaringGroupView> caringGroups,List<LeaderRecordView> leaders,List<CamperView> campers,Stats stats){}
  public record MissingCamper(UUID id,String name){}
+ public record MissingBirthdate(String key,String name,int row){}
+ public record ImportPreview(List<MissingBirthdate> missingBirthdates){}
  public record ImportResult(int imported,int added,int updated,boolean existingAssignments,int boys,int girls,int unknownGender,double averageAge,List<String> warnings,List<MissingCamper> missingCampers){}
 }

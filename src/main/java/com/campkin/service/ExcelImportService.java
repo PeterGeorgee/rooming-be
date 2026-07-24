@@ -1,7 +1,9 @@
 package com.campkin.service;
 
 import com.campkin.api.ApiModels.ImportResult;
+import com.campkin.api.ApiModels.ImportPreview;
 import com.campkin.api.ApiModels.MissingCamper;
+import com.campkin.api.ApiModels.MissingBirthdate;
 import com.campkin.api.ImportValidationException;
 import com.campkin.domain.*;
 import com.campkin.repo.*;
@@ -28,7 +30,28 @@ public class ExcelImportService {
     private final NameMatcher matcher;
 
     @Transactional
-    public ImportResult importFile(UUID campId, MultipartFile file) throws IOException {
+    public ImportResult importFile(UUID campId, MultipartFile file) throws IOException { return importFile(campId, file, Map.of()); }
+
+    @Transactional(readOnly = true)
+    public ImportPreview previewFile(MultipartFile file) throws IOException {
+        List<Map<String, String>> rows = readRows(file);
+        List<MissingBirthdate> missing = new ArrayList<>();
+        for (int index = 0; index < rows.size(); index++) {
+            Map<String, String> row = rows.get(index);
+            String combined = first(row, "name", "camper");
+            String name = first(row, "camper name");
+            if (name.isBlank()) name = stripEmbeddedDate(combined);
+            name = name.trim().replaceAll("\\s+", " ");
+            if (name.isBlank()) continue;
+            String rawBirthdate = first(row, "date of birth", "birthdate");
+            if (rawBirthdate.isBlank() && embeddedDate(combined) == null)
+                missing.add(new MissingBirthdate(NameMatcher.normalize(name), name, index + 2));
+        }
+        return new ImportPreview(missing);
+    }
+
+    @Transactional
+    public ImportResult importFile(UUID campId, MultipartFile file, Map<String, String> suppliedBirthdates) throws IOException {
         Camp camp = camps.findById(campId).orElseThrow();
         List<Map<String, String>> rows = readRows(file);
         if (rows.isEmpty()) throw new IllegalArgumentException("The file has no camper rows");
@@ -56,6 +79,13 @@ public class ExcelImportService {
             try { birthdate = parseDate(rawBirthdate); }
             catch (IllegalArgumentException e) { errors.add("Row " + rowNumber + " (" + name + "): invalid birthdate '" + rawBirthdate + "'"); }
             if (birthdate == null) birthdate = embeddedDate(combined);
+            if (birthdate == null && rawBirthdate.isBlank()) {
+                String supplied = suppliedBirthdates.get(normalized);
+                if (supplied != null && !supplied.isBlank()) {
+                    try { birthdate = parseDate(supplied); }
+                    catch (IllegalArgumentException e) { errors.add("Row " + rowNumber + " (" + name + "): invalid supplied birthdate '" + supplied + "'"); }
+                }
+            }
             if (birthdate == null && rawBirthdate.isBlank()) errors.add("Row " + rowNumber + " (" + name + "): birthdate is missing");
             if (birthdate != null && birthdate.isAfter(camp.getStartDate())) errors.add("Row " + rowNumber + " (" + name + "): birthdate is after the camp start date");
 
