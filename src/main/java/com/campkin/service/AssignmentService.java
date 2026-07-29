@@ -51,8 +51,9 @@ public class AssignmentService {
         all.forEach(c->c.setCaringGroup(null));campers.flush();caringGroups.deleteByCampId(campId);caringGroups.flush();
         Map<Domain.Gender,Integer> numbers=new EnumMap<>(Domain.Gender.class);
         for(var entry:plan.entrySet()){
-            Leader leader=entry.getKey();int number=numbers.merge(leader.getGender(),1,Integer::sum);CaringGroup group=new CaringGroup();group.setCamp(camp);group.setName((leader.getGender()==Domain.Gender.FEMALE?"Girls Caring ":"Boys Caring ")+number);group.setLeaderName(leader.getName());group.setGender(leader.getGender());caringGroups.save(group);entry.getValue().forEach(camper->camper.setCaringGroup(group));
+            Leader leader=entry.getKey();int number=numbers.merge(leader.getGender(),1,Integer::sum);CaringGroup group=new CaringGroup();group.setCamp(camp);group.setName((leader.getGender()==Domain.Gender.FEMALE?"Girls Caring ":"Boys Caring ")+number);group.setLeaderName(leader.getName());group.setGender(leader.getGender());CaringGroup savedGroup=caringGroups.save(group);entry.getValue().forEach(camper->camper.setCaringGroup(savedGroup));
         }
+        campers.flush();
     }
 
     @Transactional
