@@ -22,6 +22,7 @@ public final class ApiModels { private ApiModels(){}
  public record GenerateRoomsRequest(@NotNull List<@Valid RoomLeaderRequest> leaders){}
  public record GroupRequest(@Min(1) Integer numberOfGroups,@Min(1) Integer membersPerGroup,boolean genderSeparated,@Min(0) Integer femaleGroups,@Min(0) Integer maleGroups){}
  public record MoveRequest(UUID roomId,UUID groupId,UUID caringGroupId){}
+ public record SwapRoomsRequest(@NotNull UUID firstCamperId,@NotNull UUID secondCamperId){}
  public record GenerateCaringRequest(@NotNull List<@NotNull UUID> leaderIds){}
  public record CaringLeaderUpdateRequest(@NotNull UUID leaderId){}
  public record GenderRequest(@NotNull Domain.Gender gender){}

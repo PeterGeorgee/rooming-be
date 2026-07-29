@@ -25,6 +25,7 @@ import com.campkin.api.ApiModels.*; import com.campkin.domain.*; import com.camp
  @PostMapping("/camps/{id}/assign/rooms") void assignRooms(@PathVariable UUID id,@Valid @RequestBody GenerateRoomsRequest r){access.requireCamp(id);assignments.assignRooms(id,r);} @PostMapping("/camps/{id}/assign/groups") void assignGroups(@PathVariable UUID id,@Valid @RequestBody GroupRequest r){access.requireCamp(id);assignments.assignGroups(id,r);}
  @PostMapping("/camps/{id}/assign/caring") void assignCaring(@PathVariable UUID id,@Valid @RequestBody GenerateCaringRequest r){access.requireCamp(id);assignments.assignCaring(id,r);}
  @PatchMapping("/campers/{id}/assignment") void move(@PathVariable UUID id,@RequestBody MoveRequest r){access.requireCamper(id);service.move(id,r);}
+ @PostMapping("/campers/swap-rooms") void swapRooms(@Valid @RequestBody SwapRoomsRequest r){access.requireCamper(r.firstCamperId());access.requireCamper(r.secondCamperId());service.swapRooms(r);}
  @PatchMapping("/campers/{id}/gender") void gender(@PathVariable UUID id,@Valid @RequestBody GenderRequest r){access.requireCamper(id);service.updateGender(id,r);}
  @DeleteMapping("/campers/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) void deleteCamper(@PathVariable UUID id){access.requireCamper(id);service.deleteCamper(id);}
  @DeleteMapping("/campers") @ResponseStatus(HttpStatus.NO_CONTENT) void deleteCampers(@Valid @RequestBody CamperIdsRequest request){request.camperIds().forEach(access::requireCamper);service.deleteCampers(request.camperIds());}
