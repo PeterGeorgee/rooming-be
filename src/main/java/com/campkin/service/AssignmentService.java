@@ -127,7 +127,7 @@ public class AssignmentService {
         return active;
     }
 
-    private int leaderBeds(Room room) { return (int) roomLeaders.countBySleepRoomId(room.getId()); }
+    private int leaderBeds(Room room) { return (int) roomLeaders.findBySleepRoomIdOrderByName(room.getId()).stream().map(link -> NameMatcher.normalize(link.getName())).distinct().count(); }
 
     private double placementScore(Camper camper, Room room, Map<UUID, List<Camper>> placed, Map<UUID, Set<UUID>> friends, Camp camp) {
         List<Camper> current = placed.get(room.getId());

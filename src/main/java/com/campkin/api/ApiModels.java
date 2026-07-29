@@ -31,7 +31,7 @@ public final class ApiModels { private ApiModels(){}
  public record CamperIdsRequest(@NotEmpty List<@NotNull UUID> camperIds){}
  public record CamperView(UUID id,String name,Domain.Gender gender,boolean genderAssumed,LocalDate birthdate,int age,UUID roomId,String room,UUID groupId,String group,UUID caringGroupId,String caringGroup,List<PreferenceView> preferences){}
  public record PreferenceView(UUID id,String rawName,String matchedName,String status,Double similarity,List<UUID> alternatives){}
- public record RoomView(UUID id,String name,int capacity,int extraBeds,Domain.Gender gender,List<LeaderView> leaders,long occupancy,double averageAge,List<CamperView> campers){}
+ public record RoomView(UUID id,String name,int capacity,int extraBeds,Domain.Gender gender,List<LeaderView> leaders,List<String> sleepingLeaders,long occupancy,double averageAge,List<CamperView> campers){}
  public record GroupView(UUID id,String name,Integer capacity,List<String> leaders,long occupancy,double averageAge,List<CamperView> campers){}
  public record CaringGroupView(UUID id,String name,UUID leaderId,String leaderName,Domain.Gender gender,long occupancy,double averageAge,List<CamperView> campers){}
  public record Stats(long total,long boys,long girls,long unknownGender,long assumedGender,double averageAge,long matched,long ambiguous,long unresolved,double satisfaction,double averageRoomAgeSpread){}
