@@ -13,6 +13,7 @@ import com.campkin.api.ApiModels.*; import com.campkin.domain.*; import com.camp
  @PostMapping("/camps/{id}/rooms") @ResponseStatus(HttpStatus.CREATED) Room room(@PathVariable UUID id,@Valid @RequestBody RoomRequest r){access.requireCamp(id);return service.addRoom(id,r);}
  @PostMapping("/camps/{id}/rooms/batch") @ResponseStatus(HttpStatus.CREATED) List<Room> rooms(@PathVariable UUID id,@Valid @RequestBody BatchRoomRequest r){access.requireCamp(id);return service.addRooms(id,r);}
  @PatchMapping("/rooms/{id}") Room renameRoom(@PathVariable UUID id,@Valid @RequestBody RoomRenameRequest r){access.requireRoom(id);return service.renameRoom(id,r);}
+ @PatchMapping("/rooms/{id}/extra-beds") Room updateExtraBeds(@PathVariable UUID id,@Valid @RequestBody RoomExtraBedsRequest r){access.requireRoom(id);return service.updateExtraBeds(id,r);}
  @PutMapping("/rooms/{id}/leaders") void updateRoomLeaders(@PathVariable UUID id,@Valid @RequestBody RoomLeadersUpdateRequest r){access.requireRoom(id);service.updateRoomLeaders(id,r);}
  @PutMapping("/groups/{id}/leaders") void updateGroupLeaders(@PathVariable UUID id,@Valid @RequestBody GroupLeadersUpdateRequest r){access.requireGroup(id);service.updateGroupLeaders(id,r);}
  @PostMapping("/camps/{id}/rooms/leaders/auto") void autoRoomLeaders(@PathVariable UUID id){access.requireCamp(id);service.autoAssignRoomLeaders(id);}

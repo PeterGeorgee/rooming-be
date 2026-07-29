@@ -91,7 +91,7 @@ public class AssignmentService {
             }
             for (Camper camper : ordered) {
                 Room best = available.stream()
-                    .filter(r -> usedBeds(r, placed) < r.getCapacity())
+                    .filter(r -> usedBeds(r, placed) < totalCapacity(r))
                     .max(Comparator.comparingDouble((Room r) -> placementScore(camper, r, placed, friendMap, camp)).thenComparing(Room::getName, Comparator.reverseOrder()))
                     .orElseThrow(() -> new IllegalStateException("No available bed for " + camper.getName()));
                 placed.get(best.getId()).add(camper);
@@ -108,7 +108,7 @@ public class AssignmentService {
     }
 
     private int camperCapacity(Room room) {
-        return room.getCapacity() - leaderBeds(room);
+        return totalCapacity(room) - leaderBeds(room);
     }
 
     private List<Room> selectActiveRooms(List<Room> genderRooms, int camperCount) {
@@ -116,7 +116,7 @@ public class AssignmentService {
         int capacity = active.stream().mapToInt(this::camperCapacity).sum();
         List<Room> candidates = genderRooms.stream()
             .filter(r -> leaderBeds(r) == 0)
-            .sorted(Comparator.comparingInt(Room::getCapacity).reversed().thenComparing(Room::getName))
+            .sorted(Comparator.comparingInt(this::totalCapacity).reversed().thenComparing(Room::getName))
             .toList();
         for (Room room : candidates) {
             if (capacity >= camperCount) break;
@@ -132,7 +132,7 @@ public class AssignmentService {
     private double placementScore(Camper camper, Room room, Map<UUID, List<Camper>> placed, Map<UUID, Set<UUID>> friends, Camp camp) {
         List<Camper> current = placed.get(room.getId());
         long friendCount = current.stream().filter(c -> friends.getOrDefault(camper.getId(), Set.of()).contains(c.getId())).count();
-        double utilization = (double) usedBeds(room, placed) / room.getCapacity();
+        double utilization = (double) usedBeds(room, placed) / totalCapacity(room);
         double ageDifference = current.isEmpty() ? 0 : Math.abs(camper.ageOn(camp.getStartDate()) - current.stream().mapToInt(c -> c.ageOn(camp.getStartDate())).average().orElse(0));
         return friendCount * 8 - utilization * 12 - ageDifference * 0.05;
     }
@@ -232,4 +232,6 @@ public class AssignmentService {
         }
         return result;
     }
+
+    private int totalCapacity(Room room) { return room.getCapacity() + room.getExtraBeds(); }
 }
