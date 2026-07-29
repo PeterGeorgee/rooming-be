@@ -21,6 +21,7 @@ public class AssignmentService {
     private final DiscussionGroupRepository groups;
     private final PreferenceRepository preferences;
     private final RoomLeaderRepository roomLeaders;
+    private final GroupLeaderRepository groupLeaders;
     private final CaringGroupRepository caringGroups;
     private final LeaderRepository leaders;
 
@@ -29,72 +30,28 @@ public class AssignmentService {
         Camp camp = camps.findById(campId).orElseThrow();
         List<Camper> all = campers.findByCampIdOrderByName(campId);
         if (all.isEmpty()) throw new IllegalStateException("Import campers before generating Caring groups");
+        if (all.stream().anyMatch(c -> c.getRoom() == null))
+            throw new IllegalStateException("Assign every camper to a room before generating Caring groups");
         if (all.stream().anyMatch(c -> c.getGender() == Domain.Gender.UNKNOWN))
             throw new IllegalStateException("Set Male or Female for every camper before generating Caring groups");
-        List<Leader> selected=request.leaderIds().stream().distinct().map(id->leaders.findById(id).orElseThrow()).toList();
-        if(selected.stream().anyMatch(l->!l.getCamp().getId().equals(campId)))throw new IllegalArgumentException("A selected leader belongs to another camp");
-        if (selected.stream().anyMatch(l -> l.getGender() == Domain.Gender.UNKNOWN))
-            throw new IllegalArgumentException("Every Caring leader must be Male or Female");
-
-        all.forEach(c -> c.setCaringGroup(null));
-        campers.flush();
-        caringGroups.deleteByCampId(campId);
-
-        for (Domain.Gender gender : List.of(Domain.Gender.FEMALE, Domain.Gender.MALE)) {
-            List<Camper> people = all.stream().filter(c -> c.getGender() == gender).toList();
-            var genderLeaders = selected.stream().filter(l -> l.getGender() == gender).toList();
-            if (people.isEmpty() && !genderLeaders.isEmpty())
-                throw new IllegalArgumentException("There are no " + (gender == Domain.Gender.FEMALE ? "female" : "male") + " campers to assign to these leaders");
-            if (!people.isEmpty() && genderLeaders.isEmpty())
-                throw new IllegalArgumentException("Add at least one " + (gender == Domain.Gender.FEMALE ? "female" : "male") + " Caring leader");
-            if (genderLeaders.size() > people.size() && !people.isEmpty())
-                throw new IllegalArgumentException("There cannot be more " + gender.name().toLowerCase() + " leaders than campers");
-            if (genderLeaders.isEmpty()) continue;
-
-            List<CaringGroup> generated = new ArrayList<>();
-            for (int i = 0; i < genderLeaders.size(); i++) {
-                CaringGroup group = new CaringGroup();
-                group.setCamp(camp);
-                group.setName((gender == Domain.Gender.FEMALE ? "Girls Caring " : "Boys Caring ") + (i + 1));
-                group.setLeaderName(genderLeaders.get(i).getName());
-                group.setGender(gender);
-                generated.add(caringGroups.save(group));
-            }
-            assignCaringPeople(people, generated);
+        List<RoomLeader> roomLinks=roomLeaders.findByManagedRoomCampId(campId);
+        List<Leader> availableRoomLeaders=roomLinks.stream()
+            .map(link->leaders.findByCampIdAndNormalizedName(campId,NameMatcher.normalize(link.getName())).orElse(null))
+            .filter(Objects::nonNull)
+            .distinct()
+            .toList();
+        Map<Room,List<Camper>> clusters=roomClusters(all);
+        Map<Leader,List<Camper>> plan=new LinkedHashMap<>();
+        for(var entry:clusters.entrySet()){
+            Room room=entry.getKey();
+            Leader preferred=roomLinks.stream().filter(link->link.getManagedRoom().getId().equals(room.getId())).sorted(Comparator.comparing(RoomLeader::getName)).map(link->leaders.findByCampIdAndNormalizedName(campId,NameMatcher.normalize(link.getName())).orElse(null)).filter(Objects::nonNull).findFirst().orElse(null);
+            if(preferred==null)preferred=availableRoomLeaders.stream().filter(leader->leader.getGender()==room.getGender()).min(Comparator.comparingInt(leader->plan.getOrDefault(leader,List.of()).size())).orElseThrow(()->new IllegalStateException("Assign a leader to at least one "+(room.getGender()==Domain.Gender.FEMALE?"girls'":"boys'")+" room before generating Caring groups"));
+            plan.computeIfAbsent(preferred,ignored->new ArrayList<>()).addAll(entry.getValue());
         }
-    }
-
-    private void assignCaringPeople(List<Camper> people, List<CaringGroup> generated) {
-        int base = people.size() / generated.size();
-        int remainder = people.size() % generated.size();
-        Map<UUID,Integer> remaining = new LinkedHashMap<>();
-        for (int i = 0; i < generated.size(); i++) remaining.put(generated.get(i).getId(), base + (i < remainder ? 1 : 0));
-
-        boolean roomsAssigned = people.stream().anyMatch(c -> c.getRoom() != null);
-        boolean discussionsAssigned = people.stream().anyMatch(c -> c.getDiscussionGroup() != null);
-        Map<String,List<Camper>> clusters = new LinkedHashMap<>();
-        for (Camper camper : people) {
-            String key = roomsAssigned && camper.getRoom() != null ? "R:" + camper.getRoom().getId()
-                : discussionsAssigned && camper.getDiscussionGroup() != null ? "G:" + camper.getDiscussionGroup().getId()
-                : "U:" + camper.getId();
-            clusters.computeIfAbsent(key, ignored -> new ArrayList<>()).add(camper);
-        }
-        List<List<Camper>> orderedClusters = new ArrayList<>(clusters.values());
-        orderedClusters.forEach(cluster -> cluster.sort(Comparator
-            .comparing((Camper c) -> c.getDiscussionGroup() == null ? "" : c.getDiscussionGroup().getName())
-            .thenComparing(Camper::getName)));
-        orderedClusters.sort(Comparator.<List<Camper>>comparingInt(List::size).reversed().thenComparing(c -> c.getFirst().getName()));
-
-        for (List<Camper> cluster : orderedClusters) {
-            int cursor = 0;
-            while (cursor < cluster.size()) {
-                CaringGroup best = generated.stream().filter(g -> remaining.get(g.getId()) > 0)
-                    .max(Comparator.comparingInt((CaringGroup g) -> remaining.get(g.getId())).thenComparing(CaringGroup::getName, Comparator.reverseOrder()))
-                    .orElseThrow();
-                int take = Math.min(remaining.get(best.getId()), cluster.size() - cursor);
-                for (int i = 0; i < take; i++) cluster.get(cursor++).setCaringGroup(best);
-                remaining.compute(best.getId(), (id, left) -> left - take);
-            }
+        all.forEach(c->c.setCaringGroup(null));campers.flush();caringGroups.deleteByCampId(campId);caringGroups.flush();
+        Map<Domain.Gender,Integer> numbers=new EnumMap<>(Domain.Gender.class);
+        for(var entry:plan.entrySet()){
+            Leader leader=entry.getKey();int number=numbers.merge(leader.getGender(),1,Integer::sum);CaringGroup group=new CaringGroup();group.setCamp(camp);group.setName((leader.getGender()==Domain.Gender.FEMALE?"Girls Caring ":"Boys Caring ")+number);group.setLeaderName(leader.getName());group.setGender(leader.getGender());caringGroups.save(group);entry.getValue().forEach(camper->camper.setCaringGroup(group));
         }
     }
 
@@ -185,12 +142,13 @@ public class AssignmentService {
         Camp camp = camps.findById(campId).orElseThrow();
         List<Camper> all = campers.findByCampIdOrderByName(campId);
         if (all.isEmpty()) throw new IllegalStateException("Import campers first");
+        if (all.stream().anyMatch(c -> c.getRoom() == null)) throw new IllegalStateException("Assign every camper to a room before generating discussion groups");
         if (!req.genderSeparated()) {
             int count = req.numberOfGroups() != null ? req.numberOfGroups() : (int) Math.ceil((double) all.size() / req.membersPerGroup());
             if (count < 1) throw new IllegalArgumentException("At least one group is required");
             if (count > all.size()) throw new IllegalArgumentException("Number of groups cannot exceed number of campers");
             clearAndDeleteDiscussionGroups(campId, all);
-            assignToGroups(all, createGroups(camp, "Group", count, all.size(), false), camp);
+            assignRoomBasedGroups(campId, all, createGroups(camp, "Group", count, all.size(), false));
             return;
         }
 
@@ -219,10 +177,10 @@ public class AssignmentService {
         if (!boys.isEmpty() && boyGroups < 1) throw new IllegalArgumentException("At least one boys' group is required");
         if (girls.isEmpty() && girlGroups > 0) throw new IllegalArgumentException("Girls' groups cannot be created because there are no female campers");
         if (boys.isEmpty() && boyGroups > 0) throw new IllegalArgumentException("Boys' groups cannot be created because there are no male campers");
-        if (girlGroups > girls.size() || boyGroups > boys.size()) throw new IllegalArgumentException("Too many groups for the available campers of one gender");
+        if (girlGroups > roomClusters(girls).size() || boyGroups > roomClusters(boys).size()) throw new IllegalArgumentException("The number of groups cannot exceed the occupied rooms for that gender because room members stay together");
         clearAndDeleteDiscussionGroups(campId, all);
-        if (girlGroups > 0) assignToGroups(girls, createGroups(camp, "Girls Group", girlGroups, girls.size(), true), camp);
-        if (boyGroups > 0) assignToGroups(boys, createGroups(camp, "Boys Group", boyGroups, boys.size(), true), camp);
+        if (girlGroups > 0) assignRoomBasedGroups(campId,girls,createGroups(camp,"Girls Group",girlGroups,girls.size(),true));
+        if (boyGroups > 0) assignRoomBasedGroups(campId,boys,createGroups(camp,"Boys Group",boyGroups,boys.size(),true));
     }
 
     private void clearAndDeleteDiscussionGroups(UUID campId, List<Camper> all) {
@@ -242,14 +200,17 @@ public class AssignmentService {
         return result;
     }
 
-    private void assignToGroups(List<Camper> people, List<DiscussionGroup> generated, Camp camp) {
-        List<Camper> ordered = new ArrayList<>(people);
-        ordered.sort(Comparator.comparingInt((Camper c) -> c.ageOn(camp.getStartDate())).thenComparing(Camper::getName));
-        int count = generated.size();
-        for (int i = 0; i < ordered.size(); i++) {
-            int cycle = i % (count * 2); int index = cycle < count ? cycle : count * 2 - 1 - cycle;
-            ordered.get(i).setDiscussionGroup(generated.get(index));
-        }
+    private Map<Room,List<Camper>> roomClusters(List<Camper> people){Map<Room,List<Camper>> result=new LinkedHashMap<>();for(Camper camper:people)result.computeIfAbsent(camper.getRoom(),ignored->new ArrayList<>()).add(camper);return result;}
+
+    private void assignRoomBasedGroups(UUID campId,List<Camper> people,List<DiscussionGroup> generated){
+        List<Map.Entry<Room,List<Camper>>> clusters=new ArrayList<>(roomClusters(people).entrySet());
+        if(generated.size()>clusters.size())throw new IllegalArgumentException("The number of discussion groups cannot exceed the number of occupied rooms because room members stay together");
+        clusters.sort(Comparator.<Map.Entry<Room,List<Camper>>>comparingInt(entry->entry.getValue().size()).reversed().thenComparing(entry->entry.getKey().getName()));
+        Map<DiscussionGroup,Integer> loads=new LinkedHashMap<>();generated.forEach(group->loads.put(group,0));
+        Map<DiscussionGroup,List<Room>> sourceRooms=new LinkedHashMap<>();generated.forEach(group->sourceRooms.put(group,new ArrayList<>()));
+        for(int i=0;i<clusters.size();i++){var cluster=clusters.get(i);DiscussionGroup target=i<generated.size()?generated.get(i):generated.stream().min(Comparator.<DiscussionGroup>comparingInt(loads::get).thenComparing(DiscussionGroup::getName)).orElseThrow();cluster.getValue().forEach(camper->camper.setDiscussionGroup(target));sourceRooms.get(target).add(cluster.getKey());loads.compute(target,(group,size)->size+cluster.getValue().size());}
+        List<RoomLeader> links=roomLeaders.findByManagedRoomCampId(campId);Map<String,Integer> fallbackLoads=new HashMap<>();
+        for(DiscussionGroup group:generated){LinkedHashSet<String> names=new LinkedHashSet<>();for(Room room:sourceRooms.get(group)){List<RoomLeader> own=links.stream().filter(link->link.getManagedRoom().getId().equals(room.getId())).toList();if(own.isEmpty()){RoomLeader fallback=links.stream().filter(link->link.getManagedRoom().getGender()==room.getGender()).min(Comparator.comparingInt(link->fallbackLoads.getOrDefault(NameMatcher.normalize(link.getName()),0))).orElseThrow(()->new IllegalStateException("Assign at least one "+(room.getGender()==Domain.Gender.FEMALE?"female":"male")+" room leader before generating discussion groups"));names.add(fallback.getName());fallbackLoads.merge(NameMatcher.normalize(fallback.getName()),1,Integer::sum);}else own.stream().map(RoomLeader::getName).forEach(names::add);}for(String name:names){GroupLeader link=new GroupLeader();link.setGroup(group);link.setName(name);groupLeaders.save(link);}}
     }
 
     private Map<UUID, Set<UUID>> friendMap(UUID campId) {

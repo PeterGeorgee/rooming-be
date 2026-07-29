@@ -16,23 +16,21 @@ import com.campkin.api.ApiModels.*; import com.campkin.domain.*; import com.camp
  public void autoAssignRoomLeaders(UUID campId){List<Room> occupied=rooms.findByCampIdOrderByName(campId).stream().filter(room->campers.countByRoomId(room.getId())>0).toList();if(occupied.isEmpty())throw new IllegalStateException("Generate room assignments before assigning leaders");List<Leader> available=leaders.findByCampIdOrderByName(campId);List<RoomLeader> current=roomLeaders.findByManagedRoomCampId(campId);roomLeaders.deleteAll(current);for(Domain.Gender gender:List.of(Domain.Gender.FEMALE,Domain.Gender.MALE)){List<Room> genderRooms=occupied.stream().filter(room->room.getGender()==gender).toList();List<Leader> genderLeaders=available.stream().filter(item->item.getGender()==gender).toList();if(genderRooms.isEmpty())continue;if(genderLeaders.isEmpty())throw new IllegalStateException("Add at least one "+(gender==Domain.Gender.FEMALE?"female":"male")+" leader before auto assigning occupied rooms");int assignments=Math.max(genderRooms.size(),genderLeaders.size());for(int i=0;i<assignments;i++){RoomLeader link=new RoomLeader();link.setManagedRoom(genderRooms.get(i%genderRooms.size()));link.setName(genderLeaders.get(i%genderLeaders.size()).getName());link.setSleepRoom(null);roomLeaders.save(link);}}}
  public void autoAssignGroupLeaders(UUID campId,AutoGroupLeadersRequest request){
   List<DiscussionGroup> campGroups=groups.findByCampIdOrderByName(campId);if(campGroups.isEmpty())throw new IllegalStateException("Generate discussion groups before assigning leaders");
-  List<Leader> selected=request.leaderIds().stream().distinct().map(id->leader(id,campId)).toList();
   List<Camper> all=campers.findByCampIdOrderByName(campId);
-  Map<UUID,Set<Domain.Gender>> groupGenders=new HashMap<>();
-  for(DiscussionGroup group:campGroups){Set<Domain.Gender> genders=all.stream().filter(c->c.getDiscussionGroup()!=null&&c.getDiscussionGroup().getId().equals(group.getId())).map(Camper::getGender).filter(g->g!=Domain.Gender.UNKNOWN).collect(Collectors.toSet());groupGenders.put(group.getId(),genders);}
-  boolean allGenderSpecific=campGroups.stream().allMatch(group->groupGenders.get(group.getId()).size()==1);
-  groupLeaders.deleteAll(groupLeaders.findByGroupCampId(campId));
-  if(!allGenderSpecific){if(selected.size()<campGroups.size())throw new IllegalArgumentException("Select at least "+campGroups.size()+" leaders so every mixed discussion group has one");saveBalancedGroupLeaders(selected,campGroups);return;}
-  for(Domain.Gender gender:List.of(Domain.Gender.FEMALE,Domain.Gender.MALE)){
-   List<DiscussionGroup> matchingGroups=campGroups.stream().filter(group->groupGenders.get(group.getId()).contains(gender)).toList();
-   List<Leader> matchingLeaders=selected.stream().filter(item->item.getGender()==gender).toList();
-   String label=gender==Domain.Gender.FEMALE?"female":"male";
-   if(matchingGroups.isEmpty()&&!matchingLeaders.isEmpty())throw new IllegalArgumentException("No "+label+" discussion groups are available for the selected "+label+" leaders");
-   if(matchingLeaders.size()<matchingGroups.size())throw new IllegalArgumentException("Select at least "+matchingGroups.size()+" "+label+" leaders so every "+label+" discussion group has one");
-   if(!matchingGroups.isEmpty())saveBalancedGroupLeaders(matchingLeaders,matchingGroups);
+  List<RoomLeader> roomLinks=roomLeaders.findByManagedRoomCampId(campId);
+  Map<DiscussionGroup,LinkedHashSet<String>> plan=new LinkedHashMap<>();Map<String,Integer> fallbackLoads=new HashMap<>();
+  for(DiscussionGroup group:campGroups){
+   LinkedHashSet<String> names=new LinkedHashSet<>();
+   List<Room> sourceRooms=all.stream().filter(c->c.getDiscussionGroup()!=null&&c.getDiscussionGroup().getId().equals(group.getId())).map(Camper::getRoom).filter(Objects::nonNull).distinct().toList();
+   for(Room room:sourceRooms){
+    List<RoomLeader> own=roomLinks.stream().filter(link->link.getManagedRoom().getId().equals(room.getId())).toList();
+    if(own.isEmpty()){RoomLeader fallback=roomLinks.stream().filter(link->link.getManagedRoom().getGender()==room.getGender()).min(Comparator.comparingInt(link->fallbackLoads.getOrDefault(NameMatcher.normalize(link.getName()),0))).orElseThrow(()->new IllegalStateException("Assign at least one "+(room.getGender()==Domain.Gender.FEMALE?"female":"male")+" room leader first"));names.add(fallback.getName());fallbackLoads.merge(NameMatcher.normalize(fallback.getName()),1,Integer::sum);}else own.stream().map(RoomLeader::getName).forEach(names::add);
+   }
+   plan.put(group,names);
   }
+  groupLeaders.deleteAll(groupLeaders.findByGroupCampId(campId));
+  plan.forEach((group,names)->names.forEach(name->{GroupLeader link=new GroupLeader();link.setGroup(group);link.setName(name);groupLeaders.save(link);}));
  }
- private void saveBalancedGroupLeaders(List<Leader> selected,List<DiscussionGroup> targetGroups){for(int i=0;i<selected.size();i++){GroupLeader link=new GroupLeader();link.setGroup(targetGroups.get(i%targetGroups.size()));link.setName(selected.get(i).getName());groupLeaders.save(link);}}
  public void updateCaringLeader(UUID groupId,CaringLeaderUpdateRequest request){CaringGroup group=caringGroups.findById(groupId).orElseThrow(()->new EntityNotFoundException("Caring group not found"));Leader selected=leader(request.leaderId(),group.getCamp().getId());if(selected.getGender()!=group.getGender())throw new IllegalArgumentException("Caring leader gender must match the group");group.setLeaderName(selected.getName());}
  public void deleteRoom(UUID roomId){Room room=rooms.findById(roomId).orElseThrow(()->new EntityNotFoundException("Room not found"));campers.findByCampIdOrderByName(room.getCamp().getId()).stream().filter(c->c.getRoom()!=null&&c.getRoom().getId().equals(roomId)).forEach(c->c.setRoom(null));rooms.delete(room);}
  public void deleteCamper(UUID camperId){deleteCampers(List.of(camperId));}
