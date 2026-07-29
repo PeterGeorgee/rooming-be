@@ -80,7 +80,7 @@ public class PdfService {
     private PdfPTable roomSection(RoomView room) {
         PdfPTable section = sectionTable();
         section.addCell(sectionHeader(room.name()));
-        String meta = (room.gender().name().equals("FEMALE") ? "Girls" : "Boys") + "   |   Beds used: " + room.occupancy() + " / " + room.capacity() + (room.extraBeds() > 0 ? " + " + room.extraBeds() + " extra mattress" + (room.extraBeds() == 1 ? "" : "es") : "");
+        String meta = (room.gender().name().equals("FEMALE") ? "Girls" : "Boys") + "   |   Campers: " + room.campers().size() + " / " + room.capacity() + (room.extraBeds() > 0 ? " + " + room.extraBeds() + " extra mattress" + (room.extraBeds() == 1 ? "" : "es") : "");
         if (!room.leaders().isEmpty()) meta += "   |   Leaders: " + room.leaders().stream().map(l -> l.name() + (l.sleepRoom() == null ? "" : " (sleeps in " + l.sleepRoom() + ")")).reduce((a,b) -> a + ", " + b).orElse("");
         section.addCell(metaCell(meta));
         section.addCell(wrapped(roomMemberTable(room.campers(), room.sleepingLeaders())));
